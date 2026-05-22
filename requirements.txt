@@ -4,3 +4,4 @@ xlrd
 numpy
 matplotlib
 scikit-learn
+reportlab
