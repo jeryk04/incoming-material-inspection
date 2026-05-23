@@ -4,13 +4,12 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 
 
-def create_inspection_pdf(output_path, material_info, results_df, final_result):
+def create_inspection_pdf(output_path, material_info, results_df, summary_df, final_result):
     doc = SimpleDocTemplate(output_path, pagesize=letter)
     styles = getSampleStyleSheet()
     story = []
 
-    title = Paragraph("INCOMING MATERIAL INSPECTION REPORT", styles["Title"])
-    story.append(title)
+    story.append(Paragraph("INCOMING MATERIAL INSPECTION REPORT", styles["Title"]))
     story.append(Spacer(1, 20))
 
     info_data = [
@@ -27,12 +26,35 @@ def create_inspection_pdf(output_path, material_info, results_df, final_result):
     info_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
         ("BACKGROUND", (0, 0), (0, -1), colors.lightgrey),
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("PADDING", (0, 0), (-1, -1), 6),
     ]))
-
     story.append(info_table)
+    story.append(Spacer(1, 20))
+
+    story.append(Paragraph("Statistical Summary", styles["Heading2"]))
+
+    summary_data = [["Measurement", "Mean", "Min", "Max", "Std Dev", "Cp", "Cpk"]]
+
+    for _, row in summary_df.iterrows():
+        summary_data.append([
+            row["measurement"],
+            row["mean"],
+            row["min"],
+            row["max"],
+            row["std_dev"],
+            row["cp"],
+            row["cpk"]
+        ])
+
+    summary_table = Table(summary_data)
+    summary_table.setStyle(TableStyle([
+        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
+        ("FONTSIZE", (0, 0), (-1, -1), 8),
+        ("PADDING", (0, 0), (-1, -1), 5),
+    ]))
+    story.append(summary_table)
     story.append(Spacer(1, 20))
 
     story.append(Paragraph("Inspection Results", styles["Heading2"]))
@@ -53,11 +75,9 @@ def create_inspection_pdf(output_path, material_info, results_df, final_result):
     result_table.setStyle(TableStyle([
         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
         ("BACKGROUND", (0, 0), (-1, 0), colors.lightgrey),
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
         ("FONTSIZE", (0, 0), (-1, -1), 8),
         ("PADDING", (0, 0), (-1, -1), 5),
     ]))
-
     story.append(result_table)
     story.append(Spacer(1, 25))
 
@@ -72,11 +92,9 @@ def create_inspection_pdf(output_path, material_info, results_df, final_result):
 
     signature_table = Table(signature_data, colWidths=[150, 350])
     signature_table.setStyle(TableStyle([
-        ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
         ("FONTSIZE", (0, 0), (-1, -1), 10),
         ("PADDING", (0, 0), (-1, -1), 10),
     ]))
-
     story.append(signature_table)
 
     doc.build(story)
