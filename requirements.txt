@@ -5,3 +5,6 @@ numpy
 matplotlib
 scikit-learn
 reportlab
+python-dotenv
+openai
+anthropic
