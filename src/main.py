@@ -35,6 +35,29 @@ part_number = str(df.iloc[4, 1])
 heat_number = str(df.iloc[4, 5])
 supplier = str(df.iloc[4, 9])
 
+# PO # — label "PO #" is in row 4, column 12; value in column 13
+po_number = ""
+if df.shape[1] > 13 and pd.notna(df.iloc[4, 13]):
+    po_val = df.iloc[4, 13]
+    if isinstance(po_val, float) and po_val == int(po_val):
+        po_number = str(int(po_val))
+    else:
+        po_number = str(po_val).strip()
+
+quantity = str(df.iloc[4, 7]).strip() if pd.notna(df.iloc[4, 7]) else ""
+
+sample_size = "10"
+if pd.notna(df.iloc[6, 2]):
+    sample_size = str(df.iloc[6, 2]).replace("n =", "").replace("n=", "").strip()
+
+inspection_date = "05/19/2026"
+if df.shape[1] > 13 and pd.notna(df.iloc[6, 13]):
+    inspection_date = pd.to_datetime(df.iloc[6, 13]).strftime("%m/%d/%Y")
+
+inspector = "JC"
+if df.shape[1] > 11 and pd.notna(df.iloc[6, 11]):
+    inspector = str(df.iloc[6, 11]).strip()
+
 print("\n========================================")
 print("GENERAL INFORMATION")
 print("========================================")
@@ -42,6 +65,7 @@ print("========================================")
 print(f"Part Number: {part_number}")
 print(f"Heat Number: {heat_number}")
 print(f"Supplier: {supplier}")
+print(f"PO #: {po_number}")
 
 
 # ==========================================================
@@ -196,12 +220,15 @@ print("\nResults saved to:")
 print(results_output)
 
 material_info = {
+    "logo_path": "assets/company_logo.png",
     "part_number": part_number,
+    "po_number": po_number,
     "supplier": supplier,
     "heat_number": heat_number,
-    "inspection_date": "05/19/2026",
-    "inspector": "JC",
-    "certificate_file": "data/certificates/05-19-2026 cert A513-10200-011.pdf"
+    "quantity": quantity,
+    "sample_size": sample_size,
+    "inspection_date": inspection_date,
+    "inspector": inspector,
 }
 
 os.makedirs("reports", exist_ok=True)
