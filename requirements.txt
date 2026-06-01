@@ -8,3 +8,4 @@ reportlab
 python-dotenv
 openai
 anthropic
+pymupdf

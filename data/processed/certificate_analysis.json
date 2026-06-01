@@ -1,4 +1,29 @@
 {
-    "error": "AI response was not valid JSON",
-    "raw_response": "```json\n{\n  \"supplier_name\": \"GOOD LUCK INDUSTRIES\",\n  \"heat_number\": \"C541910\",\n  \"material_description\": \"Carbon Steel Round Tubing\",\n  \"material_grade\": \"ASTM A513 T5-20A 1020 SRA\",\n  \"purchase_order\": \"24049/01PS\",\n  \"outside_diameter\": \"0.438 INCH\",\n  \"wall_thickness\": \"0.340 INCH\",\n  \"yield_strength\": \"91,232.65 PSI\",\n  \"tensile_strength\": \"98,972.92 PSI\",\n  \"elongation\": \"17%\",\n  \"hardness\": \"Min 65 HRB\",\n  \"chemical_composition\": {\n    \"C\": \"0.1935%\",\n    \"Mn\": \"0.470%\",\n    \"P\": \"0.018%\",\n    \"S\": \"0.0030%\",\n    \"Si\": \"0.030%\",\n    \"Al\": \"0.085%\",\n    \"N\": \"0.0039%\",\n    \"Cr\": \"Not specified\",\n    \"Ni\": \"Not specified\",\n    \"Mo\": \"Not specified\",\n    \"Cu\": \"Not specified\"\n  },\n  \"certificate_status_notes\": \"Material conforms to all customer requirements. Test certificate confirms to EN 10204-3.1.\"\n}\n```"
+    "supplier_name": "JSW -India",
+    "heat_number": "C541910",
+    "material_description": "Carbon Steel Round Tubing",
+    "material_grade": "ASTM A 513 T5-20A 1020 SRA",
+    "purchase_order": "24049/01PS",
+    "outside_diameter": "0.438 INCH",
+    "inside_diameter": "0.340 INCH",
+    "wall_thickness": "",
+    "yield_strength": "91,232.65",
+    "tensile_strength": "98,972.92",
+    "elongation": "17",
+    "hardness": "75 HRB",
+    "chemical_composition": {
+        "C": "0.1935",
+        "Mn": "0.470",
+        "P": "0.018",
+        "S": "0.0030",
+        "Si": "0.030",
+        "Al": "0.085",
+        "N": "0.0039",
+        "Cr": "0.0",
+        "Ni": "",
+        "Mo": "",
+        "Cu": "0.0"
+    },
+    "certificate_status_notes": "This is to certify that the material supplied confirm to all requirements as specified by the customer. This test certificate confirms to EN 10204-3.1",
+    "certificate_review_result": "Satisfactory"
 }

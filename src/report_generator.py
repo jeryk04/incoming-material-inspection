@@ -1,8 +1,12 @@
 """
-Professional Incoming Inspection Report PDF generator (ReportLab).
+Clean Incoming Inspection Report PDF generator.
 
-Produces a landscape, controlled-quality inspection form suitable for
-manufacturing incoming material inspection workflows.
+This report shows:
+- Header / material traceability
+- Measurement average summary only
+- AI supplier certificate review
+- Final lot decision
+- Inspector signature
 """
 
 import os
@@ -21,42 +25,54 @@ from reportlab.platypus import (
     TableStyle,
 )
 
-# Default company logo
+# ==========================================================
+# Paths
+# ==========================================================
+
 _PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 DEFAULT_LOGO_PATH = os.path.join(_PROJECT_ROOT, "assets", "company_logo.png")
 
-# ---------------------------------------------------------------------------
-# Page and typography
-# ---------------------------------------------------------------------------
+# ==========================================================
+# Page Setup
+# ==========================================================
 
 PAGE_SIZE = landscape(letter)
 PAGE_WIDTH, PAGE_HEIGHT = PAGE_SIZE
 
-MARGIN_H = 0.42 * inch
-MARGIN_V = 0.36 * inch
+MARGIN_H = 0.45 * inch
+MARGIN_V = 0.35 * inch
 CONTENT_WIDTH = PAGE_WIDTH - 2 * MARGIN_H
+
+# ==========================================================
+# Fonts / Colors
+# ==========================================================
 
 FONT_BODY = 7.5
 FONT_LABEL = 7
 FONT_HEADER = 8
-FONT_TITLE = 13
+FONT_TITLE = 14
 FONT_META = 7.5
-FONT_NOTE = 6.5
+FONT_NOTE = 6.4
 
 GRID_WIDTH = 0.35
 GRID_COLOR = colors.HexColor("#2F2F2F")
-HEADER_BG = colors.HexColor("#D4D4D4")
-LABEL_BG = colors.HexColor("#ECECEC")
-META_BG = colors.HexColor("#F4F4F4")
+
+HEADER_BG = colors.HexColor("#D9D9D9")
+LABEL_BG = colors.HexColor("#EFEFEF")
+META_BG = colors.HexColor("#F5F5F5")
 ROW_ALT_BG = colors.HexColor("#FAFAFA")
+
 LOGO_BG = colors.black
-FAIL_BG = colors.HexColor("#B91C1C")
+
 PASS_BG = colors.HexColor("#E8F5E9")
 PASS_TEXT = colors.HexColor("#1B5E20")
-ACCEPT_BG = colors.HexColor("#E8F5E9")
-WARNING_BG = colors.khaki
+
+FAIL_BG = colors.HexColor("#B91C1C")
+WARNING_BG = colors.HexColor("#FFF2CC")
 
 PLACEHOLDER = "—"
+
+NOTE_FOOTER = "Generated automatically from incoming inspection data and supplier certificate review."
 
 _DEFAULT_INSTRUMENTS = {
     "OD": "Micrometer",
@@ -67,56 +83,93 @@ _DEFAULT_INSTRUMENTS = {
     "Height": "Scale",
 }
 
-NOTE_FOOTER = "Note: Sampling size can be formed according to MIL-STD-105E."
 
+# ==========================================================
+# Helpers
+# ==========================================================
 
 def _text(value, default=""):
-    """Return a display string; empty for None/NaN-like values."""
+    """Return a clean string for PDF display."""
     if value is None:
         return default
 
-    s = str(value).strip()
+    text = str(value).strip()
 
-    if not s or s.lower() in ("nan", "none"):
+    if not text or text.lower() in ("nan", "none", "null"):
         return default
 
-    return s
+    return text
+
+
+def _cell(value, placeholder=PLACEHOLDER):
+    """Return placeholder when value is empty."""
+    value = _text(value)
+
+    if value:
+        return value
+
+    return placeholder
 
 
 def _fmt_measure(value):
-    """Format numeric measurement for the observation grid."""
-    if value == "" or value is None:
+    """Format measurement values cleanly."""
+    if value is None or value == "":
         return ""
 
     try:
-        num = float(value)
-        text = f"{num:.5f}".rstrip("0").rstrip(".")
-        return text
+        number = float(value)
+        return f"{number:.5f}".rstrip("0").rstrip(".")
     except (TypeError, ValueError):
         return str(value)
 
 
-def _instrument_for(measurement, material_info):
-    """Resolve instrument from material_info or sensible defaults."""
-    instruments = material_info.get("instruments")
+def _mi(material_info, key, default=""):
+    """Shortcut for material_info lookup."""
+    return _text(material_info.get(key, default), default)
 
-    if isinstance(instruments, dict) and measurement in instruments:
-        return _text(instruments[measurement])
 
-    keyed = material_info.get(f"instrument_{measurement}")
+def _po_number(material_info):
+    """Get PO number from possible keys."""
+    for key in (
+        "po_number",
+        "po#",
+        "po_no",
+        "purchase_order",
+        "certificate_purchase_order",
+    ):
+        value = _mi(material_info, key)
 
-    if keyed:
-        return _text(keyed)
+        if value:
+            return value
 
-    return _DEFAULT_INSTRUMENTS.get(measurement, "")
+    return ""
+
+
+def _report_number(material_info):
+    """Return report number."""
+    custom = _mi(material_info, "report_no")
+
+    if custom:
+        return custom
+
+    part = _mi(material_info, "part_number")
+    po = _po_number(material_info)
+
+    if part and po:
+        return f"IIR-{part}-{po}"
+
+    if part:
+        return f"IIR-{part}"
+
+    return "IIR"
 
 
 def _base_table_style(font_size=FONT_BODY, grid=True):
-    """Common grid and padding for form tables."""
+    """Common table style."""
     style = [
         ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("FONTSIZE", (0, 0), (-1, -1), font_size),
         ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
+        ("FONTSIZE", (0, 0), (-1, -1), font_size),
         ("LEFTPADDING", (0, 0), (-1, -1), 4),
         ("RIGHTPADDING", (0, 0), (-1, -1), 4),
         ("TOPPADDING", (0, 0), (-1, -1), 3),
@@ -129,104 +182,72 @@ def _base_table_style(font_size=FONT_BODY, grid=True):
     return style
 
 
-def _mi(material_info, key, default=""):
-    """Shorthand for material_info lookup."""
-    return _text(material_info.get(key, default), default)
-
-
-def _po_number(material_info):
-    """Purchase order number from common material_info keys."""
-    for key in ("po_number", "po#", "po_no", "purchase_order", "certificate_purchase_order"):
-        value = _mi(material_info, key)
-
-        if value:
-            return value
-
-    return ""
-
-
-def _cell(value, placeholder=PLACEHOLDER):
-    """Format a field for display; use placeholder when empty."""
-    display = _text(value)
-
-    if display:
-        return display
-
-    return placeholder
-
-
-def _report_number(material_info):
-    """Build a readable report number from metadata when not supplied."""
-    custom = _mi(material_info, "report_no")
-
-    if custom and custom not in ("ACT-IIR-", "ACT-IIR"):
-        return custom
-
-    part = _mi(material_info, "part_number")
-    date = _mi(material_info, "inspection_date").replace("/", "")
-
-    if part and date:
-        return f"IIR-{part}-{date}"
-
-    if part:
-        return f"IIR-{part}"
-
-    return custom or "IIR"
-
-
 def _label_para(text):
-    """Bold label cell content."""
+    """Formatted label paragraph."""
     style = ParagraphStyle(
-        "FieldLabel",
+        "LabelStyle",
         fontName="Helvetica-Bold",
         fontSize=FONT_LABEL,
-        alignment=TA_LEFT,
         leading=FONT_LABEL + 1,
-        textColor=colors.HexColor("#1A1A1A"),
+        alignment=TA_LEFT,
+        textColor=colors.HexColor("#111111"),
     )
 
-    return Paragraph(text, style)
+    return Paragraph(str(text), style)
 
 
 def _value_para(value, bold=False):
-    """Value cell content."""
-    display = _cell(value)
-
+    """Formatted value paragraph."""
     style = ParagraphStyle(
-        "FieldValue",
+        "ValueStyle",
         fontName="Helvetica-Bold" if bold else "Helvetica",
         fontSize=FONT_META,
-        alignment=TA_LEFT,
         leading=FONT_META + 1,
+        alignment=TA_LEFT,
     )
 
-    return Paragraph(display, style)
+    return Paragraph(_cell(value), style)
 
 
 def _small_value_para(value, bold=False):
-    """Smaller value paragraph for compact certificate fields."""
-    display = _cell(value)
-
+    """Smaller value paragraph."""
     style = ParagraphStyle(
-        "SmallFieldValue",
+        "SmallValueStyle",
         fontName="Helvetica-Bold" if bold else "Helvetica",
         fontSize=FONT_NOTE,
-        alignment=TA_LEFT,
         leading=FONT_NOTE + 1,
+        alignment=TA_LEFT,
     )
 
-    return Paragraph(display, style)
+    return Paragraph(_cell(value), style)
 
+
+def _center_para(text, font_size=FONT_BODY, bold=False):
+    """Centered paragraph."""
+    style = ParagraphStyle(
+        "CenterStyle",
+        fontName="Helvetica-Bold" if bold else "Helvetica",
+        fontSize=font_size,
+        leading=font_size + 1,
+        alignment=TA_CENTER,
+    )
+
+    return Paragraph(str(text), style)
+
+
+# ==========================================================
+# Logo
+# ==========================================================
 
 def _resolve_logo_path(material_info):
-    """Return an existing logo file path, or None."""
-    custom = material_info.get("logo_path")
+    """Return valid logo path if available."""
+    custom_logo = material_info.get("logo_path")
 
-    if custom:
-        path = os.path.abspath(custom)
+    if custom_logo:
+        custom_logo = os.path.abspath(custom_logo)
 
-        if os.path.isfile(path):
-            return path
+        if os.path.isfile(custom_logo):
+            return custom_logo
 
     if os.path.isfile(DEFAULT_LOGO_PATH):
         return DEFAULT_LOGO_PATH
@@ -235,114 +256,39 @@ def _resolve_logo_path(material_info):
 
 
 def _build_logo_image(logo_path):
-    """Scale logo to fit the top-left header block."""
-    max_width = CONTENT_WIDTH * 3 / 12 - 6
-    max_height = 0.72 * inch
+    """Scale logo for header."""
+    max_width = 2.25 * inch
+    max_height = 0.75 * inch
 
-    img = Image(logo_path)
-    aspect = img.imageWidth / float(img.imageHeight)
+    image = Image(logo_path)
 
-    img.drawWidth = max_width
-    img.drawHeight = max_width / aspect
+    aspect = image.imageWidth / float(image.imageHeight)
+    image.drawWidth = max_width
+    image.drawHeight = max_width / aspect
 
-    if img.drawHeight > max_height:
-        img.drawHeight = max_height
-        img.drawWidth = max_height * aspect
+    if image.drawHeight > max_height:
+        image.drawHeight = max_height
+        image.drawWidth = max_height * aspect
 
-    return img
+    return image
 
 
 def _header_logo_cell(material_info):
-    """Logo flowable for the header, or empty placeholder if missing."""
+    """Return logo or text fallback."""
     logo_path = _resolve_logo_path(material_info)
 
     if logo_path:
         return _build_logo_image(logo_path)
 
-    return Paragraph("<b>G & J STEEL & TUBING, INC.</b>", _small_paragraph_style())
+    return _center_para("G & J STEEL & TUBING, INC.", font_size=8, bold=True)
 
 
-def _small_paragraph_style():
-    """Small paragraph style."""
-    return ParagraphStyle(
-        "SmallParagraph",
-        fontName="Helvetica",
-        fontSize=FONT_NOTE,
-        leading=FONT_NOTE + 1,
-        alignment=TA_CENTER,
-    )
-
-
-def _build_observation_rows(results_df, material_info, min_rows=None):
-    """
-    Group results_df by characteristic and build observation table rows.
-
-    Each row:
-    [sl_no, characteristic, spec, instrument, samples 1-10, result]
-    """
-    if results_df is None or results_df.empty:
-        grouped_order = []
-        grouped = {}
-    else:
-        grouped = {}
-        grouped_order = []
-
-        for _, row in results_df.iterrows():
-            measurement = str(row["measurement"])
-
-            if measurement not in grouped:
-                grouped[measurement] = {
-                    "lsl": row["lsl"],
-                    "usl": row["usl"],
-                    "samples": {},
-                    "result_list": [],
-                }
-
-                grouped_order.append(measurement)
-
-            sample_id = int(row["sample"])
-            grouped[measurement]["samples"][sample_id] = row["value"]
-            grouped[measurement]["result_list"].append(row["result"])
-
-    observation_rows = []
-    sl_no = 1
-
-    for measurement in grouped_order:
-        data = grouped[measurement]
-        spec_text = f"{_fmt_measure(data['lsl'])} to {_fmt_measure(data['usl'])}"
-
-        overall_result = (
-            "PASS" if all(r == "PASS" for r in data["result_list"]) else "FAIL"
-        )
-
-        sample_values = [
-            _fmt_measure(data["samples"].get(i, "")) for i in range(1, 11)
-        ]
-
-        observation_rows.append(
-            [
-                sl_no,
-                measurement,
-                spec_text,
-                _instrument_for(measurement, material_info),
-                *sample_values,
-                overall_result,
-            ]
-        )
-
-        sl_no += 1
-
-    if min_rows is None:
-        min_rows = max(len(observation_rows) + 2, 6)
-
-    while len(observation_rows) < min_rows:
-        observation_rows.append(["", "", "", ""] + [""] * 10 + [""])
-
-    return observation_rows
-
+# ==========================================================
+# Header Table
+# ==========================================================
 
 def _build_header_table(material_info):
-    """Top header: logo, centered title, document meta, and traceability row."""
+    """Build top report header."""
     col_w = CONTENT_WIDTH / 12.0
     col_widths = [col_w] * 12
 
@@ -350,22 +296,22 @@ def _build_header_table(material_info):
         "ReportTitle",
         fontName="Helvetica-Bold",
         fontSize=FONT_TITLE,
+        leading=FONT_TITLE + 2,
         alignment=TA_CENTER,
-        leading=FONT_TITLE + 3,
-        textColor=colors.HexColor("#111111"),
     )
 
-    title_para = Paragraph("Incoming Inspection Report", title_style)
+    title = Paragraph("Incoming Inspection Report", title_style)
 
-    qty = _mi(material_info, "quantity") or _mi(material_info, "lot_qty")
+    quantity = _mi(material_info, "quantity") or _mi(material_info, "lot_qty")
+    item_number = _mi(material_info, "item_number") or _mi(material_info, "part_number")
 
-    header_rows = [
+    header_data = [
         [
             _header_logo_cell(material_info),
             "",
             "",
             "",
-            title_para,
+            title,
             "",
             "",
             "",
@@ -407,202 +353,44 @@ def _build_header_table(material_info):
             _value_para(_mi(material_info, "supplier")),
             "",
             "",
-            _label_para("Part Number"),
-            _value_para(_mi(material_info, "part_number"), bold=True),
+            _label_para("Item / Part #"),
+            _value_para(item_number, bold=True),
             _label_para("PO #"),
             _value_para(_po_number(material_info), bold=True),
             _label_para("Quantity"),
-            _value_para(qty),
+            _value_para(quantity),
             _label_para("Heat No."),
-            _value_para(_mi(material_info, "heat_number")),
+            _value_para(_mi(material_info, "heat_number"), bold=True),
         ],
     ]
 
-    table = Table(header_rows, colWidths=col_widths)
-
-    style = _base_table_style(FONT_LABEL) + [
-        ("SPAN", (0, 0), (3, 2)),
-        ("BACKGROUND", (0, 0), (3, 2), LOGO_BG),
-        ("ALIGN", (0, 0), (3, 2), "CENTER"),
-        ("VALIGN", (0, 0), (3, 2), "MIDDLE"),
-        ("TOPPADDING", (0, 0), (3, 2), 5),
-        ("BOTTOMPADDING", (0, 0), (3, 2), 5),
-        ("SPAN", (4, 0), (7, 2)),
-        ("SPAN", (9, 0), (11, 0)),
-        ("SPAN", (9, 1), (11, 1)),
-        ("SPAN", (9, 2), (11, 2)),
-        ("SPAN", (1, 3), (3, 3)),
-        ("BACKGROUND", (8, 0), (11, 2), META_BG),
-        ("BACKGROUND", (0, 3), (0, 3), LABEL_BG),
-        ("BACKGROUND", (4, 3), (4, 3), LABEL_BG),
-        ("BACKGROUND", (6, 3), (6, 3), LABEL_BG),
-        ("BACKGROUND", (8, 3), (8, 3), LABEL_BG),
-        ("BACKGROUND", (10, 3), (10, 3), LABEL_BG),
-        ("ALIGN", (4, 0), (7, 2), "CENTER"),
-        ("ALIGN", (8, 0), (8, 2), "RIGHT"),
-        ("VALIGN", (4, 0), (7, 2), "MIDDLE"),
-        ("TOPPADDING", (4, 0), (7, 2), 6),
-        ("BOTTOMPADDING", (4, 0), (7, 2), 6),
-    ]
-
-    table.setStyle(TableStyle(style))
-
-    return table
-
-
-def _build_observation_table(observation_rows):
-    """Observation grid with merged header cells for sample columns."""
-    header_row_1 = [
-        "Sl No",
-        "Characteristics",
-        "Specification",
-        "Instrument Used",
-        "Sample observations",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "",
-        "Remarks / Result",
-    ]
-
-    header_row_2 = [
-        "",
-        "",
-        "",
-        "",
-        "1",
-        "2",
-        "3",
-        "4",
-        "5",
-        "6",
-        "7",
-        "8",
-        "9",
-        "10",
-        "",
-    ]
-
-    table_data = [header_row_1, header_row_2]
-
-    for row in observation_rows:
-        table_data.append(
-            [
-                row[0],
-                row[1],
-                row[2],
-                row[3],
-                row[4],
-                row[5],
-                row[6],
-                row[7],
-                row[8],
-                row[9],
-                row[10],
-                row[11],
-                row[12],
-                row[13],
-                row[14],
-            ]
-        )
-
-    widths = [
-        0.38 * inch,
-        0.95 * inch,
-        1.05 * inch,
-        0.88 * inch,
-    ]
-
-    sample_w = (CONTENT_WIDTH - sum(widths) - 0.92 * inch) / 10.0
-    widths.extend([sample_w] * 10)
-    widths.append(0.92 * inch)
-
-    total = sum(widths)
-    scale = CONTENT_WIDTH / total
-    widths = [w * scale for w in widths]
-
-    table = Table(table_data, colWidths=widths, repeatRows=2)
-
-    style = _base_table_style(FONT_BODY) + [
-        ("SPAN", (4, 0), (13, 0)),
-        ("SPAN", (0, 0), (0, 1)),
-        ("SPAN", (1, 0), (1, 1)),
-        ("SPAN", (2, 0), (2, 1)),
-        ("SPAN", (3, 0), (3, 1)),
-        ("SPAN", (14, 0), (14, 1)),
-        ("BACKGROUND", (0, 0), (-1, 1), HEADER_BG),
-        ("FONTNAME", (0, 0), (-1, 1), "Helvetica-Bold"),
-        ("FONTSIZE", (0, 0), (-1, 1), FONT_HEADER),
-        ("ALIGN", (0, 0), (0, -1), "CENTER"),
-        ("ALIGN", (1, 0), (1, -1), "CENTER"),
-        ("ALIGN", (3, 0), (3, -1), "CENTER"),
-        ("ALIGN", (4, 0), (14, -1), "CENTER"),
-        ("ALIGN", (2, 2), (2, -1), "CENTER"),
-        ("ROWBACKGROUNDS", (0, 2), (-1, -1), [colors.white, ROW_ALT_BG]),
-    ]
-
-    for row_index in range(2, len(table_data)):
-        result_value = table_data[row_index][14]
-        has_data = bool(table_data[row_index][1])
-
-        if not has_data:
-            style.append(("BACKGROUND", (0, row_index), (-1, row_index), ROW_ALT_BG))
-            continue
-
-        if result_value == "FAIL":
-            style.append(("BACKGROUND", (0, row_index), (-1, row_index), FAIL_BG))
-            style.append(("TEXTCOLOR", (0, row_index), (-1, row_index), colors.white))
-            style.append(("FONTNAME", (14, row_index), (14, row_index), "Helvetica-Bold"))
-
-        elif result_value == "PASS":
-            style.append(("BACKGROUND", (14, row_index), (14, row_index), PASS_BG))
-            style.append(("FONTNAME", (14, row_index), (14, row_index), "Helvetica-Bold"))
-            style.append(("TEXTCOLOR", (14, row_index), (14, row_index), PASS_TEXT))
-
-    table.setStyle(TableStyle(style))
-
-    return table
-
-
-def _build_summary_table(summary_df):
-    """Compact Cp/Cpk summary table below observations."""
-    if summary_df is None or summary_df.empty:
-        return None
-
-    data = [["Characteristic", "Mean", "Cp", "Cpk"]]
-
-    for _, row in summary_df.iterrows():
-        data.append(
-            [
-                _text(row.get("measurement", "")),
-                _text(row.get("mean", "")),
-                _text(row.get("cp", "")),
-                _text(row.get("cpk", "")),
-            ]
-        )
-
-    col_widths = [
-        1.35 * inch,
-        1.1 * inch,
-        0.85 * inch,
-        0.85 * inch,
-    ]
-
-    table = Table(data, colWidths=col_widths, hAlign="LEFT")
+    table = Table(header_data, colWidths=col_widths)
 
     table.setStyle(
         TableStyle(
-            _base_table_style(FONT_NOTE)
+            _base_table_style(FONT_LABEL)
             + [
-                ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("ALIGN", (1, 0), (-1, -1), "CENTER"),
-                ("ALIGN", (0, 0), (0, -1), "CENTER"),
+                ("SPAN", (0, 0), (3, 2)),
+                ("BACKGROUND", (0, 0), (3, 2), LOGO_BG),
+                ("ALIGN", (0, 0), (3, 2), "CENTER"),
+                ("VALIGN", (0, 0), (3, 2), "MIDDLE"),
+
+                ("SPAN", (4, 0), (7, 2)),
+                ("ALIGN", (4, 0), (7, 2), "CENTER"),
+                ("VALIGN", (4, 0), (7, 2), "MIDDLE"),
+
+                ("SPAN", (9, 0), (11, 0)),
+                ("SPAN", (9, 1), (11, 1)),
+                ("SPAN", (9, 2), (11, 2)),
+
+                ("SPAN", (1, 3), (3, 3)),
+
+                ("BACKGROUND", (8, 0), (11, 2), META_BG),
+                ("BACKGROUND", (0, 3), (0, 3), LABEL_BG),
+                ("BACKGROUND", (4, 3), (4, 3), LABEL_BG),
+                ("BACKGROUND", (6, 3), (6, 3), LABEL_BG),
+                ("BACKGROUND", (8, 3), (8, 3), LABEL_BG),
+                ("BACKGROUND", (10, 3), (10, 3), LABEL_BG),
             ]
         )
     )
@@ -610,16 +398,39 @@ def _build_summary_table(summary_df):
     return table
 
 
-def _build_certificate_review_table(material_info):
-    """AI supplier certificate review section for the PDF."""
+# ==========================================================
+# Measurement Summary
+# ==========================================================
 
-    cert_title = Table(
-        [["AI Supplier Certificate Review"]],
+def _instrument_for(measurement, material_info):
+    """Resolve measuring instrument."""
+    instruments = material_info.get("instruments")
+
+    if isinstance(instruments, dict) and measurement in instruments:
+        return _text(instruments[measurement])
+
+    keyed = material_info.get(f"instrument_{measurement}")
+
+    if keyed:
+        return _text(keyed)
+
+    return _DEFAULT_INSTRUMENTS.get(measurement, "")
+
+
+def _build_measurement_summary_table(results_df, material_info):
+    """
+    Build simplified measurement summary table.
+
+    Shows only:
+    characteristic, specification, average, min, max, instrument, result.
+    """
+    title_table = Table(
+        [["Inspection Measurement Summary"]],
         colWidths=[CONTENT_WIDTH],
-        rowHeights=[0.25 * inch],
+        rowHeights=[0.28 * inch],
     )
 
-    cert_title.setStyle(
+    title_table.setStyle(
         TableStyle(
             [
                 ("GRID", (0, 0), (-1, -1), GRID_WIDTH, GRID_COLOR),
@@ -632,16 +443,153 @@ def _build_certificate_review_table(material_info):
         )
     )
 
-    heat_match = _mi(material_info, "certificate_heat_match", "REVIEW")
+    table_data = [
+        [
+            "Sl No",
+            "Characteristic",
+            "Specification",
+            "Average",
+            "Min",
+            "Max",
+            "Instrument Used",
+            "Result",
+        ]
+    ]
 
-    cert_data = [
+    if results_df is None or results_df.empty:
+        table_data.append(["", "", "", "", "", "", "", ""])
+    else:
+        sl_no = 1
+
+        for measurement in results_df["measurement"].unique():
+            measurement_data = results_df[results_df["measurement"] == measurement]
+
+            values = measurement_data["value"]
+            lsl = measurement_data["lsl"].iloc[0]
+            usl = measurement_data["usl"].iloc[0]
+
+            average_value = values.mean()
+            min_value = values.min()
+            max_value = values.max()
+
+            result = (
+                "PASS"
+                if all(measurement_data["result"] == "PASS")
+                else "FAIL"
+            )
+
+            table_data.append(
+                [
+                    sl_no,
+                    measurement,
+                    f"{_fmt_measure(lsl)} to {_fmt_measure(usl)}",
+                    _fmt_measure(average_value),
+                    _fmt_measure(min_value),
+                    _fmt_measure(max_value),
+                    _instrument_for(measurement, material_info),
+                    result,
+                ]
+            )
+
+            sl_no += 1
+
+    while len(table_data) < 4:
+        table_data.append(["", "", "", "", "", "", "", ""])
+
+    col_widths = [
+        0.55 * inch,
+        1.25 * inch,
+        1.40 * inch,
+        1.15 * inch,
+        1.00 * inch,
+        1.00 * inch,
+        1.55 * inch,
+        CONTENT_WIDTH
+        - (
+            0.55 * inch
+            + 1.25 * inch
+            + 1.40 * inch
+            + 1.15 * inch
+            + 1.00 * inch
+            + 1.00 * inch
+            + 1.55 * inch
+        ),
+    ]
+
+    table = Table(
+        table_data,
+        colWidths=col_widths,
+        rowHeights=[0.34 * inch] + [0.32 * inch] * (len(table_data) - 1),
+    )
+
+    style = _base_table_style(FONT_BODY) + [
+        ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, ROW_ALT_BG]),
+    ]
+
+    for row_index in range(1, len(table_data)):
+        result_value = table_data[row_index][7]
+
+        if result_value == "PASS":
+            style.append(("BACKGROUND", (7, row_index), (7, row_index), PASS_BG))
+            style.append(("TEXTCOLOR", (7, row_index), (7, row_index), PASS_TEXT))
+            style.append(("FONTNAME", (7, row_index), (7, row_index), "Helvetica-Bold"))
+
+        elif result_value == "FAIL":
+            style.append(("BACKGROUND", (0, row_index), (-1, row_index), FAIL_BG))
+            style.append(("TEXTCOLOR", (0, row_index), (-1, row_index), colors.white))
+            style.append(("FONTNAME", (7, row_index), (7, row_index), "Helvetica-Bold"))
+
+    table.setStyle(TableStyle(style))
+
+    return [title_table, table]
+
+
+# ==========================================================
+# AI Certificate Review
+# ==========================================================
+
+def _build_certificate_review_table(material_info):
+    """
+    Build clean certificate review section.
+    """
+    heat_match = _mi(material_info, "certificate_heat_match", "REVIEW")
+    certificate_result = _mi(
+        material_info,
+        "certificate_review_result",
+        _mi(material_info, "certificate_review_status", "Reviewed"),
+    )
+
+    title_table = Table(
+        [["AI Supplier Certificate Review"]],
+        colWidths=[CONTENT_WIDTH],
+        rowHeights=[0.28 * inch],
+    )
+
+    title_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), GRID_WIDTH, GRID_COLOR),
+                ("BACKGROUND", (0, 0), (-1, -1), HEADER_BG),
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
+                ("FONTSIZE", (0, 0), (-1, -1), FONT_HEADER),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+
+    review_data = [
         [
             _label_para("Cert Supplier"),
             _small_value_para(_mi(material_info, "certificate_supplier")),
             _label_para("Cert Heat No."),
-            _small_value_para(_mi(material_info, "certificate_heat_number")),
+            _small_value_para(_mi(material_info, "certificate_heat_number"), bold=True),
             _label_para("Excel Heat No."),
-            _small_value_para(_mi(material_info, "heat_number")),
+            _small_value_para(_mi(material_info, "heat_number"), bold=True),
             _label_para("Heat Match"),
             _small_value_para(heat_match, bold=True),
         ],
@@ -650,106 +598,97 @@ def _build_certificate_review_table(material_info):
             _small_value_para(_mi(material_info, "certificate_material")),
             _label_para("Grade"),
             _small_value_para(_mi(material_info, "certificate_material_grade")),
-            _label_para("Yield"),
+            _label_para("Yield Strength"),
             _small_value_para(_mi(material_info, "certificate_yield_strength")),
-            _label_para("Tensile"),
+            _label_para("Tensile Strength"),
             _small_value_para(_mi(material_info, "certificate_tensile_strength")),
-        ],
-        [
-            _label_para("OD"),
-            _small_value_para(_mi(material_info, "certificate_outside_diameter")),
-            _label_para("ID"),
-            _small_value_para(_mi(material_info, "certificate_inside_diameter")),
-            _label_para("Wall"),
-            _small_value_para(_mi(material_info, "certificate_wall_thickness")),
-            _label_para("Status"),
-            _small_value_para(_mi(material_info, "certificate_review_status")),
         ],
         [
             _label_para("Elongation"),
             _small_value_para(_mi(material_info, "certificate_elongation")),
             _label_para("Hardness"),
             _small_value_para(_mi(material_info, "certificate_hardness")),
-            _label_para("Notes"),
-            _small_value_para(_mi(material_info, "certificate_notes")),
+            _label_para("Certificate Result"),
+            _small_value_para(certificate_result, bold=True),
             "",
             "",
         ],
     ]
 
-    cert_table = Table(
-        cert_data,
+    review_table = Table(
+        review_data,
         colWidths=[
-            0.85 * inch,
-            1.40 * inch,
-            0.85 * inch,
+            0.90 * inch,
+            1.35 * inch,
+            0.90 * inch,
             1.20 * inch,
-            0.85 * inch,
-            1.25 * inch,
-            0.85 * inch,
+            1.00 * inch,
+            1.20 * inch,
+            1.10 * inch,
             CONTENT_WIDTH
             - (
-                0.85 * inch
-                + 1.40 * inch
-                + 0.85 * inch
+                0.90 * inch
+                + 1.35 * inch
+                + 0.90 * inch
                 + 1.20 * inch
-                + 0.85 * inch
-                + 1.25 * inch
-                + 0.85 * inch
+                + 1.00 * inch
+                + 1.20 * inch
+                + 1.10 * inch
             ),
         ],
+        rowHeights=[0.32 * inch, 0.34 * inch, 0.34 * inch],
     )
 
-    cert_style = _base_table_style(FONT_NOTE) + [
+    style = _base_table_style(FONT_NOTE) + [
         ("BACKGROUND", (0, 0), (0, -1), LABEL_BG),
         ("BACKGROUND", (2, 0), (2, -1), LABEL_BG),
         ("BACKGROUND", (4, 0), (4, -1), LABEL_BG),
         ("BACKGROUND", (6, 0), (6, -1), LABEL_BG),
+        ("SPAN", (5, 2), (7, 2)),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
     ]
 
     if heat_match == "PASS":
-        cert_style.append(("BACKGROUND", (7, 0), (7, 0), PASS_BG))
-        cert_style.append(("TEXTCOLOR", (7, 0), (7, 0), PASS_TEXT))
-        cert_style.append(("FONTNAME", (7, 0), (7, 0), "Helvetica-Bold"))
+        style.append(("BACKGROUND", (7, 0), (7, 0), PASS_BG))
+        style.append(("TEXTCOLOR", (7, 0), (7, 0), PASS_TEXT))
+        style.append(("FONTNAME", (7, 0), (7, 0), "Helvetica-Bold"))
     else:
-        cert_style.append(("BACKGROUND", (7, 0), (7, 0), WARNING_BG))
-        cert_style.append(("FONTNAME", (7, 0), (7, 0), "Helvetica-Bold"))
+        style.append(("BACKGROUND", (7, 0), (7, 0), WARNING_BG))
+        style.append(("FONTNAME", (7, 0), (7, 0), "Helvetica-Bold"))
 
-    cert_table.setStyle(TableStyle(cert_style))
+    review_table.setStyle(TableStyle(style))
 
-    chemical_composition = material_info.get("chemical_composition", {})
+    return [title_table, review_table]
 
-    if not isinstance(chemical_composition, dict):
-        chemical_composition = {}
 
-    chemistry_data = [
-        ["C", "Mn", "P", "S", "Si", "Al", "N", "Cr", "Ni", "Mo", "Cu"],
-        [
-            _cell(chemical_composition.get("C", "")),
-            _cell(chemical_composition.get("Mn", "")),
-            _cell(chemical_composition.get("P", "")),
-            _cell(chemical_composition.get("S", "")),
-            _cell(chemical_composition.get("Si", "")),
-            _cell(chemical_composition.get("Al", "")),
-            _cell(chemical_composition.get("N", "")),
-            _cell(chemical_composition.get("Cr", "")),
-            _cell(chemical_composition.get("Ni", "")),
-            _cell(chemical_composition.get("Mo", "")),
-            _cell(chemical_composition.get("Cu", "")),
-        ],
-    ]
+# ==========================================================
+# Chemical Composition
+# ==========================================================
 
-    chemistry_table = Table(
-        chemistry_data,
-        colWidths=[CONTENT_WIDTH / 11.0] * 11,
+def _build_chemical_composition_table(material_info):
+    """Build chemical composition row from certificate data. Returns None if no data."""
+    chem = material_info.get("chemical_composition", {})
+
+    if not isinstance(chem, dict):
+        return None
+
+    elements = [(k, _text(v)) for k, v in chem.items() if _text(v)]
+
+    if not elements:
+        return None
+
+    title_table = Table(
+        [["Chemical Composition"]],
+        colWidths=[CONTENT_WIDTH],
+        rowHeights=[0.22 * inch],
     )
 
-    chemistry_table.setStyle(
+    title_table.setStyle(
         TableStyle(
             [
                 ("GRID", (0, 0), (-1, -1), GRID_WIDTH, GRID_COLOR),
-                ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, -1), LABEL_BG),
+                ("FONTNAME", (0, 0), (-1, -1), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, -1), FONT_NOTE),
                 ("ALIGN", (0, 0), (-1, -1), "CENTER"),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
@@ -757,20 +696,64 @@ def _build_certificate_review_table(material_info):
         )
     )
 
-    return [cert_title, cert_table, chemistry_table]
+    n = len(elements)
+    col_w = CONTENT_WIDTH / n
+
+    header_row = [_center_para(k, font_size=FONT_NOTE, bold=True) for k, _ in elements]
+    value_row = [_center_para(v, font_size=FONT_NOTE) for _, v in elements]
+
+    chem_table = Table(
+        [header_row, value_row],
+        colWidths=[col_w] * n,
+        rowHeights=[0.24 * inch, 0.26 * inch],
+    )
+
+    chem_table.setStyle(
+        TableStyle(
+            _base_table_style(FONT_NOTE)
+            + [
+                ("BACKGROUND", (0, 0), (-1, 0), HEADER_BG),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ]
+        )
+    )
+
+    return [title_table, chem_table]
 
 
-def _build_remarks_table(material_info):
-    data = [[_label_para("Remarks"), _value_para(_mi(material_info, "remarks"))]]
+# ==========================================================
+# Certificate Notes
+# ==========================================================
 
-    table = Table(data, colWidths=[0.85 * inch, CONTENT_WIDTH - 0.85 * inch])
+def _build_certificate_notes_table(material_info):
+    """Build certificate test notes row. Returns None if no notes."""
+    notes = _text(material_info.get("certificate_notes", ""))
+
+    if not notes:
+        return None
+
+    notes_style = ParagraphStyle(
+        "NotesStyle",
+        fontName="Helvetica",
+        fontSize=FONT_NOTE,
+        leading=FONT_NOTE + 2,
+        alignment=TA_LEFT,
+    )
+
+    data = [[_label_para("Certificate Notes"), Paragraph(notes, notes_style)]]
+
+    col_widths = [1.10 * inch, CONTENT_WIDTH - 1.10 * inch]
+
+    table = Table(data, colWidths=col_widths)
 
     table.setStyle(
         TableStyle(
-            _base_table_style(FONT_BODY)
+            _base_table_style(FONT_NOTE)
             + [
                 ("BACKGROUND", (0, 0), (0, 0), LABEL_BG),
-                ("MINROWHEIGHT", (0, 0), (-1, -1), 22),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ]
         )
     )
@@ -778,21 +761,27 @@ def _build_remarks_table(material_info):
     return table
 
 
+# ==========================================================
+# Conclusion / Signature
+# ==========================================================
+
 def _build_conclusion_table(final_result):
+    """Build lot decision row."""
     accepted = final_result == "LOT ACCEPTED"
     rejected = final_result == "LOT REJECTED"
 
     data = [
         [
             _label_para("Conclusion"),
-            f"{'[X]' if accepted else '[ ]'}  Lot Accepted",
-            f"{'[X]' if rejected else '[ ]'}  Lot Rejected",
-            "[ ]  Concession Accepted",
+            f"{'[X]' if accepted else '[ ]'} Lot Accepted",
+            f"{'[X]' if rejected else '[ ]'} Lot Rejected",
+            "[ ] Concession Accepted",
         ]
     ]
 
-    col_w = CONTENT_WIDTH / 4.0
-    table = Table(data, colWidths=[col_w, col_w, col_w, col_w])
+    col_width = CONTENT_WIDTH / 4.0
+
+    table = Table(data, colWidths=[col_width] * 4, rowHeights=[0.30 * inch])
 
     style = _base_table_style(FONT_BODY) + [
         ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
@@ -801,7 +790,7 @@ def _build_conclusion_table(final_result):
     ]
 
     if accepted:
-        style.append(("BACKGROUND", (1, 0), (1, 0), ACCEPT_BG))
+        style.append(("BACKGROUND", (1, 0), (1, 0), PASS_BG))
         style.append(("TEXTCOLOR", (1, 0), (1, 0), PASS_TEXT))
 
     if rejected:
@@ -814,17 +803,9 @@ def _build_conclusion_table(final_result):
 
 
 def _build_signature_table(material_info):
+    """Build simple inspector signature row."""
     inspector = _mi(material_info, "inspector")
-    approved_by = _mi(material_info, "approved_by")
-    approval_date = _mi(
-        material_info,
-        "approval_date",
-        _mi(material_info, "inspection_date"),
-    )
-
-    label_w = 0.9 * inch
-    value_w = 1.2 * inch
-    sig_w = (CONTENT_WIDTH - 2 * label_w - 2 * value_w) / 2.0
+    inspection_date = _mi(material_info, "inspection_date")
 
     data = [
         [
@@ -832,16 +813,29 @@ def _build_signature_table(material_info):
             _value_para(inspector, bold=True),
             _label_para("Signature"),
             "",
-            _label_para("Approved by"),
-            _value_para(approved_by),
             _label_para("Date"),
-            _value_para(approval_date),
-        ],
+            _value_para(inspection_date),
+        ]
     ]
 
     table = Table(
         data,
-        colWidths=[label_w, value_w, label_w, sig_w, label_w, value_w, label_w, value_w],
+        colWidths=[
+            1.00 * inch,
+            1.35 * inch,
+            1.00 * inch,
+            4.20 * inch,
+            0.75 * inch,
+            CONTENT_WIDTH
+            - (
+                1.00 * inch
+                + 1.35 * inch
+                + 1.00 * inch
+                + 4.20 * inch
+                + 0.75 * inch
+            ),
+        ],
+        rowHeights=[0.34 * inch],
     )
 
     table.setStyle(
@@ -851,14 +845,16 @@ def _build_signature_table(material_info):
                 ("BACKGROUND", (0, 0), (0, 0), LABEL_BG),
                 ("BACKGROUND", (2, 0), (2, 0), LABEL_BG),
                 ("BACKGROUND", (4, 0), (4, 0), LABEL_BG),
-                ("BACKGROUND", (6, 0), (6, 0), LABEL_BG),
-                ("MINROWHEIGHT", (0, 0), (-1, -1), 26),
             ]
         )
     )
 
     return table
 
+
+# ==========================================================
+# Main PDF Function
+# ==========================================================
 
 def create_inspection_pdf(
     output_path,
@@ -868,20 +864,10 @@ def create_inspection_pdf(
     final_result,
 ):
     """
-    Build a landscape Incoming Inspection Report PDF.
+    Build landscape Incoming Inspection Report PDF.
 
-    Parameters
-    ----------
-    output_path : str
-        Destination PDF path.
-    material_info : dict
-        Header, traceability, remarks, signature, and certificate fields.
-    results_df : pandas.DataFrame
-        Columns: sample, measurement, value, lsl, usl, result.
-    summary_df : pandas.DataFrame
-        Per-characteristic statistics.
-    final_result : str
-        LOT ACCEPTED or LOT REJECTED.
+    summary_df is kept in the function signature for compatibility,
+    but Cp/Cpk summary is intentionally not displayed.
     """
     doc = SimpleDocTemplate(
         output_path,
@@ -893,11 +879,11 @@ def create_inspection_pdf(
         title="Incoming Inspection Report",
     )
 
-    note_style = ParagraphStyle(
-        "FooterNote",
+    footer_style = ParagraphStyle(
+        "FooterStyle",
         fontName="Helvetica-Oblique",
         fontSize=FONT_NOTE,
-        leading=FONT_NOTE + 2,
+        leading=FONT_NOTE + 1,
         alignment=TA_LEFT,
         textColor=colors.HexColor("#555555"),
     )
@@ -905,34 +891,35 @@ def create_inspection_pdf(
     story = []
 
     story.append(_build_header_table(material_info))
-    story.append(Spacer(1, 6))
+    story.append(Spacer(1, 8))
 
-    observation_rows = _build_observation_rows(results_df, material_info)
-    story.append(_build_observation_table(observation_rows))
-    story.append(Spacer(1, 5))
-
-    summary_table = _build_summary_table(summary_df)
-
-    if summary_table is not None:
-        story.append(summary_table)
-        story.append(Spacer(1, 4))
-
-    certificate_review_tables = _build_certificate_review_table(material_info)
-
-    for table in certificate_review_tables:
+    for table in _build_measurement_summary_table(results_df, material_info):
         story.append(table)
 
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 8))
 
-    story.append(_build_remarks_table(material_info))
-    story.append(Spacer(1, 4))
+    for table in _build_certificate_review_table(material_info):
+        story.append(table)
+
+    chem_tables = _build_chemical_composition_table(material_info)
+    if chem_tables:
+        story.append(Spacer(1, 4))
+        for table in chem_tables:
+            story.append(table)
+
+    notes_table = _build_certificate_notes_table(material_info)
+    if notes_table:
+        story.append(Spacer(1, 4))
+        story.append(notes_table)
+
+    story.append(Spacer(1, 8))
 
     story.append(_build_conclusion_table(final_result))
-    story.append(Spacer(1, 4))
+    story.append(Spacer(1, 6))
 
     story.append(_build_signature_table(material_info))
-    story.append(Spacer(1, 5))
+    story.append(Spacer(1, 6))
 
-    story.append(Paragraph(NOTE_FOOTER, note_style))
+    story.append(Paragraph(NOTE_FOOTER, footer_style))
 
     doc.build(story)

@@ -1,348 +1,419 @@
 import os
-import json
+import re
 import pandas as pd
 
+from ai_certificate_analyzer import analyze_incoming_pdf, save_analysis_json
 from report_generator import create_inspection_pdf
-from ai_certificate_analyzer import analyze_certificate_with_ai
 
 
 # ==========================================================
-# Incoming Material Inspection AI System
+# Batch Incoming PDF Report Generator
 # ==========================================================
 
-INSPECTION_FILE = "data/raw_excel/A513-10200-011(05-19-2026).xls"
-CERTIFICATE_FILE = "data/certificates/05-19-2026 cert A513-10200-011.pdf"
-
+INCOMING_FOLDER = "data/incomings"
 PROCESSED_FOLDER = "data/processed"
 REPORTS_FOLDER = "reports"
 
-PDF_OUTPUT = "reports/incoming_inspection_report_A513-10200-011.pdf"
-RESULTS_OUTPUT = "data/processed/tolerance_analysis_results.csv"
-SUMMARY_OUTPUT = "data/processed/statistical_summary.csv"
-CERTIFICATE_ANALYSIS_OUTPUT = "data/processed/certificate_analysis.json"
 
-
-def safe_string(value):
+def clean_text(value, default=""):
     """Convert values safely to clean strings."""
     if value is None:
-        return ""
+        return default
 
-    if pd.isna(value):
-        return ""
+    text = str(value).strip()
 
-    return str(value).strip()
+    if not text or text.lower() in ("nan", "none", "null"):
+        return default
 
-
-def compare_values(value_1, value_2):
-    """Compare two values as uppercase strings."""
-    return safe_string(value_1).upper() == safe_string(value_2).upper()
+    return text
 
 
-def calculate_summary(results_df):
-    """Calculate Mean, Min, Max, Std Dev, Cp, and Cpk."""
-    summary_rows = []
+def safe_float(value):
+    """
+    Convert values like:
+    '0.439'
+    '0.439 INCH'
+    '91,232.65 PSI'
+    into a float.
+    """
+    if value is None:
+        return None
 
-    for measurement_name in results_df["measurement"].unique():
-        measurement_data = results_df[results_df["measurement"] == measurement_name]
+    text = str(value).strip().replace(",", "")
 
-        values = measurement_data["value"]
-        lsl = measurement_data["lsl"].iloc[0]
-        usl = measurement_data["usl"].iloc[0]
+    if not text:
+        return None
 
-        mean_value = values.mean()
-        min_value = values.min()
-        max_value = values.max()
-        std_value = values.std()
+    match = re.search(r"[-+]?\d*\.?\d+", text)
 
-        if std_value == 0 or pd.isna(std_value):
-            cp = None
-            cpk = None
+    if not match:
+        return None
+
+    return float(match.group())
+
+
+def safe_filename(value):
+    """Make safe Windows/GitHub file names."""
+    value = clean_text(value, "UNKNOWN")
+
+    value = value.replace("/", "-")
+    value = value.replace("\\", "-")
+    value = value.replace(":", "-")
+    value = value.replace("*", "-")
+    value = value.replace("?", "-")
+    value = value.replace('"', "")
+    value = value.replace("<", "")
+    value = value.replace(">", "")
+    value = value.replace("|", "")
+    value = value.replace("#", "")
+    value = re.sub(r"\s+", "_", value)
+
+    return value
+
+
+def get_item_po_from_filename(file_name):
+    """
+    Extract Item# and PO# from PDF file name.
+
+    Expected examples:
+    A513-10200-011 PO#96345.pdf
+    A269-31600-043 PO#96388.pdf
+    """
+    base_name = os.path.splitext(file_name)[0]
+
+    pattern = r"(?P<item>[A-Za-z0-9\-]+)\s*PO#?\s*(?P<po>[A-Za-z0-9\-]+)"
+    match = re.search(pattern, base_name, re.IGNORECASE)
+
+    if not match:
+        return "", ""
+
+    item_number = match.group("item").strip()
+    po_number = match.group("po").strip()
+
+    return item_number, po_number
+
+
+def get_all_incoming_pdfs():
+    """
+    Get all valid incoming PDFs from data/incomings.
+    """
+    if not os.path.exists(INCOMING_FOLDER):
+        os.makedirs(INCOMING_FOLDER, exist_ok=True)
+
+    pdf_files = []
+
+    for file_name in os.listdir(INCOMING_FOLDER):
+        if not file_name.lower().endswith(".pdf"):
+            continue
+
+        item_number, po_number = get_item_po_from_filename(file_name)
+
+        if item_number and po_number:
+            full_path = os.path.join(INCOMING_FOLDER, file_name)
+            pdf_files.append(full_path)
         else:
-            cp = (usl - lsl) / (6 * std_value)
-            cpk = min(
-                (usl - mean_value) / (3 * std_value),
-                (mean_value - lsl) / (3 * std_value)
-            )
+            print(f"Skipping invalid file name: {file_name}")
+            print("Expected format: ItemNumber PO#PONumber.pdf")
 
-        summary_rows.append({
-            "measurement": measurement_name,
-            "mean": round(mean_value, 6),
-            "min": round(min_value, 6),
-            "max": round(max_value, 6),
-            "std_dev": round(std_value, 6),
-            "cp": round(cp, 4) if cp is not None else "",
-            "cpk": round(cpk, 4) if cpk is not None else ""
-        })
+    pdf_files.sort()
 
-    return pd.DataFrame(summary_rows)
+    return pdf_files
 
 
-def main():
-    print("========================================")
-    print("INCOMING MATERIAL INSPECTION AI SYSTEM")
-    print("========================================")
+def build_results_df(measurements):
+    """
+    Convert AI measurement summary into dataframe required by report_generator.py.
+    """
+    rows = []
 
-    # ==========================================================
-    # Load Excel File
-    # ==========================================================
+    for measurement in measurements:
+        measurement_name = clean_text(measurement.get("measurement", ""))
+        average = safe_float(measurement.get("average", ""))
+        lsl = safe_float(measurement.get("lsl", ""))
+        usl = safe_float(measurement.get("usl", ""))
 
-    if not os.path.exists(INSPECTION_FILE):
-        print("\nERROR: Inspection file not found.")
-        print(INSPECTION_FILE)
-        return
+        result = clean_text(measurement.get("result", "REVIEW")).upper()
 
-    df = pd.read_excel(INSPECTION_FILE, header=None)
+        if result not in ("PASS", "FAIL"):
+            result = "REVIEW"
 
-    print("\nExcel file loaded successfully.")
+        if not measurement_name:
+            continue
 
-    # ==========================================================
-    # Extract General Information from Excel
-    # ==========================================================
+        if average is None:
+            continue
 
-    part_number = safe_string(df.iloc[4, 1])
-    heat_number = safe_string(df.iloc[4, 5])
-    supplier = safe_string(df.iloc[4, 9])
+        rows.append(
+            {
+                "sample": 1,
+                "measurement": measurement_name,
+                "value": average,
+                "lsl": lsl if lsl is not None else 0,
+                "usl": usl if usl is not None else 0,
+                "result": result,
+            }
+        )
 
-    print("\n========================================")
-    print("GENERAL INFORMATION")
-    print("========================================")
-    print(f"Part Number: {part_number}")
-    print(f"Heat Number: {heat_number}")
-    print(f"Supplier: {supplier}")
+    return pd.DataFrame(rows)
 
-    # ==========================================================
-    # AI Supplier Certificate Analysis
-    # ==========================================================
 
-    print("\n========================================")
-    print("AI SUPPLIER CERTIFICATE ANALYSIS")
-    print("========================================")
+def build_material_info(data, filename_item="", filename_po=""):
+    """
+    Convert AI analysis JSON into material_info used by report_generator.py.
+    """
+    material = data.get("material_info", {})
+    certificate = data.get("certificate", {})
+    validation = data.get("validation", {})
 
-    try:
-        certificate_data = analyze_certificate_with_ai(CERTIFICATE_FILE)
+    item_number = (
+        clean_text(material.get("item_number", ""))
+        or clean_text(material.get("part_number", ""))
+        or filename_item
+    )
 
-        print("Certificate analyzed successfully.")
+    part_number = (
+        clean_text(material.get("part_number", ""))
+        or item_number
+    )
 
-        certificate_supplier = safe_string(certificate_data.get("supplier_name", ""))
-        certificate_heat_number = safe_string(certificate_data.get("heat_number", ""))
-        certificate_material = safe_string(certificate_data.get("material_description", ""))
-        certificate_material_grade = safe_string(certificate_data.get("material_grade", ""))
-        certificate_po = safe_string(certificate_data.get("purchase_order", ""))
-        certificate_od = safe_string(certificate_data.get("outside_diameter", ""))
-        certificate_id = safe_string(certificate_data.get("inside_diameter", ""))
-        certificate_wall = safe_string(certificate_data.get("wall_thickness", ""))
-        certificate_yield = safe_string(certificate_data.get("yield_strength", ""))
-        certificate_tensile = safe_string(certificate_data.get("tensile_strength", ""))
-        certificate_elongation = safe_string(certificate_data.get("elongation", ""))
-        certificate_hardness = safe_string(certificate_data.get("hardness", ""))
-        certificate_notes = safe_string(certificate_data.get("certificate_status_notes", ""))
+    po_number = (
+        clean_text(material.get("po_number", ""))
+        or clean_text(certificate.get("purchase_order", ""))
+        or filename_po
+    )
 
-        chemical_composition = certificate_data.get("chemical_composition", {})
+    heat_number = clean_text(material.get("heat_number", ""))
+    certificate_heat_number = clean_text(certificate.get("heat_number", ""))
 
-        if not isinstance(chemical_composition, dict):
-            chemical_composition = {}
+    heat_match = clean_text(validation.get("heat_number_match", ""))
 
-        heat_match = "PASS" if compare_values(certificate_heat_number, heat_number) else "REVIEW"
+    if not heat_match:
+        heat_match = (
+            "PASS"
+            if heat_number
+            and certificate_heat_number
+            and heat_number.upper() == certificate_heat_number.upper()
+            else "REVIEW"
+        )
 
-        print(f"Certificate Heat Number: {certificate_heat_number}")
-        print(f"Excel Heat Number: {heat_number}")
-        print(f"Heat Number Match: {heat_match}")
-
-    except Exception as error:
-        print("Certificate AI analysis failed.")
-        print(error)
-
-        certificate_data = {}
-        certificate_supplier = ""
-        certificate_heat_number = ""
-        certificate_material = ""
-        certificate_material_grade = ""
-        certificate_po = ""
-        certificate_od = ""
-        certificate_id = ""
-        certificate_wall = ""
-        certificate_yield = ""
-        certificate_tensile = ""
-        certificate_elongation = ""
-        certificate_hardness = ""
-        certificate_notes = "AI analysis failed. Manual review required."
-        chemical_composition = {}
-        heat_match = "REVIEW"
-
-    # ==========================================================
-    # Extract Specifications
-    # ==========================================================
-
-    od_max = float(df.iloc[9, 1])
-    od_min = float(df.iloc[11, 1])
-
-    wall_max = float(df.iloc[9, 2])
-    wall_min = float(df.iloc[11, 2])
-
-    print("\n========================================")
-    print("SPECIFICATIONS")
-    print("========================================")
-    print(f"OD Spec Range: {od_min} - {od_max}")
-    print(f"Wall Spec Range: {wall_min} - {wall_max}")
-
-    # ==========================================================
-    # Extract Measurements
-    # ==========================================================
-
-    measurements = []
-
-    row = 12
-
-    while row <= 21:
-        sample_number = df.iloc[row, 0]
-
-        od_value = df.iloc[row, 1]
-        wall_value = df.iloc[row, 2]
-
-        if pd.notna(od_value):
-            od_result = "PASS"
-
-            if od_value < od_min or od_value > od_max:
-                od_result = "FAIL"
-
-            measurements.append({
-                "sample": int(sample_number),
-                "measurement": "OD",
-                "value": float(od_value),
-                "lsl": od_min,
-                "usl": od_max,
-                "result": od_result
-            })
-
-        if pd.notna(wall_value):
-            wall_result = "PASS"
-
-            if wall_value < wall_min or wall_value > wall_max:
-                wall_result = "FAIL"
-
-            measurements.append({
-                "sample": int(sample_number),
-                "measurement": "Wall",
-                "value": float(wall_value),
-                "lsl": wall_min,
-                "usl": wall_max,
-                "result": wall_result
-            })
-
-        row += 1
-
-    results_df = pd.DataFrame(measurements)
-
-    print("\n========================================")
-    print("MEASUREMENT RESULTS")
-    print("========================================")
-    print(results_df)
-
-    # ==========================================================
-    # Statistical Summary
-    # ==========================================================
-
-    summary_df = calculate_summary(results_df)
-
-    print("\n========================================")
-    print("STATISTICAL SUMMARY")
-    print("========================================")
-    print(summary_df)
-
-    # ==========================================================
-    # Final Lot Decision
-    # ==========================================================
-
-    if all(results_df["result"] == "PASS"):
-        final_result = "LOT ACCEPTED"
-    else:
-        final_result = "LOT REJECTED"
-
-    print("\n========================================")
-    print("FINAL LOT DECISION")
-    print("========================================")
-    print(final_result)
-
-    # ==========================================================
-    # Save Results
-    # ==========================================================
-
-    os.makedirs(PROCESSED_FOLDER, exist_ok=True)
-    os.makedirs(REPORTS_FOLDER, exist_ok=True)
-
-    results_df.to_csv(RESULTS_OUTPUT, index=False)
-    summary_df.to_csv(SUMMARY_OUTPUT, index=False)
-
-    with open(CERTIFICATE_ANALYSIS_OUTPUT, "w", encoding="utf-8") as file:
-        json.dump(certificate_data, file, indent=4)
-
-    print("\nResults saved to:")
-    print(RESULTS_OUTPUT)
-
-    print("\nStatistical summary saved to:")
-    print(SUMMARY_OUTPUT)
-
-    print("\nCertificate analysis saved to:")
-    print(CERTIFICATE_ANALYSIS_OUTPUT)
-
-    # ==========================================================
-    # Build Material Info for PDF
-    # ==========================================================
-
-    material_info = {
+    return {
+        "supplier": clean_text(material.get("supplier", "")),
+        "item_number": item_number,
         "part_number": part_number,
-        "supplier": supplier,
-        "po_number": certificate_po,
+        "po_number": po_number,
+        "quantity": clean_text(material.get("quantity", "")),
         "heat_number": heat_number,
-        "inspection_date": "05/19/2026",
-        "inspector": "JC",
-        "certificate_file": CERTIFICATE_FILE,
-        "report_no": "ACT-IIR-001",
-        "customer_name": "",
-        "sample_size": "10",
-        "item_name": part_number,
-        "part_rev": "",
-        "lot_qty": "",
-        "quantity": "",
-        "material_grade": "Carbon Steel Round Tubing",
-        "lot_size": "",
-        "ref_no": "",
-        "remarks": "",
+        "inspection_date": clean_text(material.get("inspection_date", "")),
+        "inspector": clean_text(material.get("inspector", "")),
+        "sample_size": clean_text(material.get("sample_size", "10")),
+        "report_no": "",
+        "logo_path": "assets/company_logo.png",
 
-        # AI certificate analysis fields
-        "certificate_supplier": certificate_supplier,
+        "certificate_supplier": clean_text(certificate.get("supplier_name", "")),
         "certificate_heat_number": certificate_heat_number,
-        "certificate_material": certificate_material,
-        "certificate_material_grade": certificate_material_grade,
-        "certificate_purchase_order": certificate_po,
-        "certificate_outside_diameter": certificate_od,
-        "certificate_inside_diameter": certificate_id,
-        "certificate_wall_thickness": certificate_wall,
-        "certificate_yield_strength": certificate_yield,
-        "certificate_tensile_strength": certificate_tensile,
-        "certificate_elongation": certificate_elongation,
-        "certificate_hardness": certificate_hardness,
+        "certificate_material": clean_text(certificate.get("material_description", "")),
+        "certificate_material_grade": clean_text(certificate.get("material_grade", "")),
+        "certificate_purchase_order": clean_text(certificate.get("purchase_order", "")),
+        "certificate_yield_strength": clean_text(certificate.get("yield_strength", "")),
+        "certificate_tensile_strength": clean_text(certificate.get("tensile_strength", "")),
+        "certificate_elongation": clean_text(certificate.get("elongation", "")),
+        "certificate_hardness": clean_text(certificate.get("hardness", "")),
         "certificate_heat_match": heat_match,
-        "certificate_review_status": "AI Reviewed" if certificate_data else "Manual Review Required",
-        "certificate_notes": certificate_notes,
-        "chemical_composition": chemical_composition
+        "certificate_review_status": clean_text(
+            validation.get("certificate_review_status", "AI Reviewed")
+        ),
+        "certificate_review_result": clean_text(
+            certificate.get("certificate_review_result", "")
+            or validation.get("material_review", "")
+            or "AI Reviewed"
+        ),
+        "certificate_notes": clean_text(certificate.get("certificate_status_notes", "")),
+        "chemical_composition": certificate.get("chemical_composition", {}),
     }
 
-    # ==========================================================
-    # Generate PDF Report
-    # ==========================================================
+
+def determine_final_result(data, results_df):
+    """
+    Decide final lot result.
+    """
+    validation = data.get("validation", {})
+
+    # PO mismatch always rejects regardless of measurements
+    po_match = clean_text(validation.get("po_number_match", "")).upper()
+    if po_match == "FAIL":
+        return "LOT REJECTED"
+
+    ai_decision = clean_text(validation.get("final_lot_decision", "")).upper()
+
+    # Normalize AI decision variants ("FAIL", "ACCEPTED", "REJECTED", etc.)
+    if "ACCEPT" in ai_decision:
+        return "LOT ACCEPTED"
+    if "REJECT" in ai_decision or "FAIL" in ai_decision:
+        return "LOT REJECTED"
+
+    if results_df.empty:
+        return "LOT REJECTED"
+
+    if all(results_df["result"] == "PASS"):
+        return "LOT ACCEPTED"
+
+    return "LOT REJECTED"
+
+
+def process_single_pdf(pdf_path):
+    """
+    Analyze one PDF, generate one report, and return a summary row dict.
+    """
+    file_name = os.path.basename(pdf_path)
+    filename_item, filename_po = get_item_po_from_filename(file_name)
+
+    print("\n========================================")
+    print("PROCESSING INCOMING PDF")
+    print("========================================")
+    print(pdf_path)
+    print(f"Item from filename: {filename_item}")
+    print(f"PO from filename: {filename_po}")
+
+    data = analyze_incoming_pdf(pdf_path)
+
+    json_output_path = os.path.join(
+        PROCESSED_FOLDER,
+        f"{safe_filename(filename_item)}_PO_{safe_filename(filename_po)}_analysis.json"
+    )
+
+    save_analysis_json(data, json_output_path)
+
+    measurements = data.get("measurements", [])
+    results_df = build_results_df(measurements)
+
+    summary_df = pd.DataFrame()
+
+    material_info = build_material_info(
+        data,
+        filename_item=filename_item,
+        filename_po=filename_po
+    )
+
+    final_result = determine_final_result(data, results_df)
+
+    item_number = (
+        clean_text(material_info.get("item_number", ""))
+        or filename_item
+    )
+
+    po_number = (
+        clean_text(material_info.get("po_number", ""))
+        or filename_po
+    )
+
+    output_filename = f"{safe_filename(item_number)}_PO_{safe_filename(po_number)}.pdf"
+    report_output_path = os.path.join(REPORTS_FOLDER, output_filename)
 
     create_inspection_pdf(
-        PDF_OUTPUT,
+        report_output_path,
         material_info,
         results_df,
         summary_df,
         final_result
     )
 
-    print("\nPDF report created:")
-    print(PDF_OUTPUT)
+    print("AI analysis saved:")
+    print(json_output_path)
+
+    print("Report created:")
+    print(report_output_path)
+
+    validation = data.get("validation", {})
+
+    summary_row = {
+        "item_number": item_number,
+        "po_number": po_number,
+        "supplier": clean_text(material_info.get("supplier", "")),
+        "inspection_date": clean_text(material_info.get("inspection_date", "")),
+        "inspector": clean_text(material_info.get("inspector", "")),
+        "heat_number": clean_text(material_info.get("heat_number", "")),
+        "quantity": clean_text(material_info.get("quantity", "")),
+        "heat_match": clean_text(validation.get("heat_number_match", "")),
+        "po_match": clean_text(validation.get("po_number_match", "")),
+        "measurements_result": (
+            "PASS" if not results_df.empty and all(results_df["result"] == "PASS") else "FAIL"
+        ),
+        "certificate_result": clean_text(
+            data.get("certificate", {}).get("certificate_review_result", "")
+        ),
+        "final_result": final_result,
+    }
+
+    for _, row in results_df.drop_duplicates("measurement").iterrows():
+        key = f"{row['measurement']}_avg"
+        summary_row[key] = row["value"]
+
+    return summary_row
+
+
+def save_batch_summary(summary_rows, output_path):
+    """Write all lot summary rows to a CSV."""
+    if not summary_rows:
+        return
+
+    df = pd.DataFrame(summary_rows)
+    df.to_csv(output_path, index=False)
+
+    print("\nBatch summary saved:")
+    print(output_path)
+
+
+def main():
+    print("========================================")
+    print("BATCH INCOMING MATERIAL REPORT GENERATOR")
+    print("========================================")
+
+    os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+    os.makedirs(REPORTS_FOLDER, exist_ok=True)
+
+    incoming_pdfs = get_all_incoming_pdfs()
+
+    if not incoming_pdfs:
+        print("\nERROR: No valid incoming PDFs found.")
+        print("Put PDFs in data/incomings with this format:")
+        print("ItemNumber PO#PONumber.pdf")
+        print("\nExample:")
+        print("A513-10200-011 PO#96345.pdf")
+        return
+
+    print("\nPDF files found:")
+    for pdf_path in incoming_pdfs:
+        print("-", os.path.basename(pdf_path))
+
+    total_success = 0
+    total_failed = 0
+    summary_rows = []
+
+    for pdf_path in incoming_pdfs:
+        try:
+            summary_row = process_single_pdf(pdf_path)
+            summary_rows.append(summary_row)
+            total_success += 1
+
+        except Exception as error:
+            total_failed += 1
+            print("\nERROR processing PDF:")
+            print(pdf_path)
+            print(error)
+
+    if summary_rows:
+        save_batch_summary(
+            summary_rows,
+            os.path.join(PROCESSED_FOLDER, "batch_summary.csv")
+        )
+
+    print("\n========================================")
+    print("BATCH COMPLETE")
+    print("========================================")
+    print(f"Reports created: {total_success}")
+    print(f"Failed files: {total_failed}")
+    print("========================================")
 
 
 if __name__ == "__main__":
-    main()
+    main()   
