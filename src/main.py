@@ -654,11 +654,11 @@ def build_material_info(data, filename_item="", filename_po="", material_spec=No
         or item_number
     )
 
-    # Priority: page-1 / filename (passed as filename_po) → AI material_info → certificate
+    # Priority: AI material_info → certificate → filename fallback
     po_number = (
-        filename_po
-        or clean_text(material.get("po_number", ""))
+        clean_text(material.get("po_number", ""))
         or clean_text(certificate.get("purchase_order", ""))
+        or filename_po
     )
 
     heat_number = clean_text(material.get("heat_number", ""))

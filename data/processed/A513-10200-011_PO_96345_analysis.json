@@ -43,8 +43,8 @@
         "wall_thickness": "N.A",
         "length": "24 ft",
         "straightness": "Satisfactory",
-        "yield_strength": "55000 PSI",
-        "tensile_strength": "65000 PSI",
+        "yield_strength": "91,232.65 PSI",
+        "tensile_strength": "98,972.92 PSI",
         "elongation": "17 %",
         "hardness": "93.0-94.0 HRB",
         "chemical_composition": {
@@ -83,14 +83,14 @@
             {
                 "property": "Yield Strength (PSI)",
                 "specified": "55000 Min",
-                "observed": "55200",
+                "observed": "91,232.65",
                 "unit": "PSI",
                 "result": "PASS"
             },
             {
                 "property": "Tensile Strength (PSI)",
                 "specified": "65000 Min",
-                "observed": "65100",
+                "observed": "98,972.92",
                 "unit": "PSI",
                 "result": "PASS"
             },
