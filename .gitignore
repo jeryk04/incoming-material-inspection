@@ -149,6 +149,10 @@ activemq-data/
 
 # Environments
 .env
+
+# Local material specification database exports
+data/material_specs/*.mdb
+data/material_specs/*.accdb
 .envrc
 .venv
 env/

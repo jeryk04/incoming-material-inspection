@@ -1,0 +1,497 @@
+{
+  "ASTM_A269_316L": {
+    "chemical_properties": {
+      "C": "0.035 Max",
+      "Mn": "2.00 Max",
+      "P": "0.045 Max",
+      "S": "0.030 Max",
+      "Si": "1.00 Max",
+      "Al": "",
+      "N": "",
+      "Cr": "16.0-18.0",
+      "Ni": "10.0-15.0",
+      "Mo": "2.00-3.00",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "170 MPa Min",
+      "tensile_strength": "485 MPa Min",
+      "elongation": "35% Min",
+      "hardness": "90 HRB Max"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "IS_3074_CEW-2": {
+    "chemical_properties": {
+      "C": "0.25 Max",
+      "Mn": "1.20 Max",
+      "P": "0.04 Max",
+      "S": "0.04 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "450 MPa Min",
+      "tensile_strength": "550 MPa Min",
+      "elongation": "25% Min",
+      "hardness": ""
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_513_1020": {
+    "chemical_properties": {
+      "C": "0.18-0.23",
+      "Mn": "0.30-0.60",
+      "P": "0.040 Max",
+      "S": "0.050 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "",
+      "tensile_strength": "",
+      "elongation": "",
+      "hardness": ""
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_A269_316": {
+    "chemical_properties": {
+      "C": "0.08 Max",
+      "Mn": "2.00 Max",
+      "P": "0.045 Max",
+      "S": "0.030 Max",
+      "Si": "1.00 Max",
+      "Al": "",
+      "N": "",
+      "Cr": "16.0-18.0",
+      "Ni": "10.0-14.0",
+      "Mo": "2.00-3.00",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "30 ksi Min",
+      "tensile_strength": "75 ksi Min",
+      "elongation": "35% Min",
+      "hardness": "90 HRB Max"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_513_ASTM_A513": {
+    "chemical_properties": {
+      "C": "0.15-0.25",
+      "Mn": "0.30-0.60",
+      "P": "0.035 Max",
+      "S": "0.035 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "38,000 PSI Min",
+      "tensile_strength": "52,000 PSI Min",
+      "elongation": "12% Min",
+      "hardness": "HRB 62 Max"
+    },
+    "required_sections": [
+      "chemical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "Wall"
+    ]
+  },
+  "ASTM_513_516_55X1": {
+    "chemical_properties": {
+      "C": "0.17-0.24",
+      "Mn": "0.85-1.20",
+      "P": "0.035 Max",
+      "S": "0.035 Max",
+      "Si": "0.13-0.45",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "30 ksi Min",
+      "tensile_strength": "55-75 ksi",
+      "elongation": "27% Min",
+      "hardness": ""
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical"
+    ],
+    "required_dimensional_properties": []
+  },
+  "ASTM_513_SAE_A513": {
+    "chemical_properties": {
+      "C": "0.18-0.23",
+      "Mn": "0.70-1.00",
+      "P": "0.035 Max",
+      "S": "0.035 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "230 MPa Min",
+      "tensile_strength": "379 MPa Min",
+      "elongation": "15% Min",
+      "hardness": "121-137 HB"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_513_514265": {
+    "chemical_properties": {
+      "C": "0.15-0.21",
+      "Mn": "0.70-1.00",
+      "P": "0.035 Max",
+      "S": "0.04 Max",
+      "Si": "0.15-0.35",
+      "Al": "",
+      "N": "",
+      "Cr": "0.40-0.65",
+      "Ni": "0.70-1.00",
+      "Mo": "0.15-0.25",
+      "Cu": "0.15-0.50"
+    },
+    "mechanical_properties": {
+      "yield_strength": "100000 PSI Min",
+      "tensile_strength": "110000-130000 PSI",
+      "elongation": "18% Min",
+      "hardness": "235-293 HB"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_513_SAE_1020_SRA": {
+    "chemical_properties": {
+      "C": "0.15-0.25",
+      "Mn": "0.30-0.60",
+      "P": "0.035 Max",
+      "S": "0.035 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "60,000 PSI Min",
+      "tensile_strength": "70,000 PSI Min",
+      "elongation": "10% Min",
+      "hardness": "B-75 Min"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_513_SAE_1010": {
+    "chemical_properties": {
+      "C": "0.05-0.15",
+      "Mn": "0.30-0.60",
+      "P": "0.035 Max",
+      "S": "0.035 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "30,000-40,000 PSI",
+      "tensile_strength": "45,000-55,000 PSI",
+      "elongation": "15-25%",
+      "hardness": "HRB 55-75"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "IS_3074_IS_3074_-_CEW-2": {
+    "chemical_properties": {
+      "C": "0.25 Max",
+      "Mn": "0.20 Max",
+      "P": "0.04 Max",
+      "S": "0.04 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "270 MPa (28 kgf/mm\u00b2) Min",
+      "tensile_strength": "430 MPa (44 kgf/mm\u00b2) Min",
+      "elongation": "",
+      "hardness": ""
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_513_SA-513_GR._1020": {
+    "chemical_properties": {
+      "C": "0.15-0.25",
+      "Mn": "0.30-0.60",
+      "P": "0.035 Max",
+      "S": "0.035 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "60,000 PSI Min",
+      "tensile_strength": "70,000 PSI Min",
+      "elongation": "10% Min",
+      "hardness": "B-75 Min"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_513_513-1024": {
+    "chemical_properties": {
+      "C": "0.22-0.28",
+      "Mn": "0.60-0.90",
+      "P": "0.040 Max",
+      "S": "0.050 Max",
+      "Si": "0.15-0.40",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "350 MPa Min",
+      "tensile_strength": "600-800 MPa",
+      "elongation": "20-25%",
+      "hardness": "170-210 HB"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  },
+  "ASTM_A269_10316LEPSL-.25X.035SMT1": {
+    "chemical_properties": {
+      "C": "",
+      "Mn": "",
+      "P": "",
+      "S": "",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "",
+      "tensile_strength": "",
+      "elongation": "",
+      "hardness": ""
+    },
+    "required_sections": [],
+    "required_dimensional_properties": []
+  },
+  "ASTM_513_1456_P911": {
+    "chemical_properties": {
+      "C": "",
+      "Mn": "",
+      "P": "",
+      "S": "",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "",
+      "tensile_strength": "",
+      "elongation": "",
+      "hardness": ""
+    },
+    "required_sections": [],
+    "required_dimensional_properties": []
+  },
+  "ASTM_513_SAE_1018": {
+    "chemical_properties": {
+      "C": "0.15-0.20",
+      "Mn": "0.60-0.90",
+      "P": "0.040 Max",
+      "S": "0.050 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "51,000 PSI Min",
+      "tensile_strength": "70,000 PSI Min",
+      "elongation": "10% Min",
+      "hardness": "HRB 89 Max"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
+  }
+}

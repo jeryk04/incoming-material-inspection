@@ -1,0 +1,5 @@
+item_number,po_number,supplier,inspection_date,inspector,heat_number,quantity,heat_match,po_match,measurements_result,certificate_result,final_result,Outside Diameter_avg,Wall Thickness_avg,Outside Diameter (OD)_avg,Inside Diameter_avg,Inside Diameter (ID)_avg
+A269-31600-043,96388,High Purity,05/12/26,J.C.,N29136,100 ft,PASS,PASS,PASS,PASS,LOT ACCEPTED,0.252,0.034,,,
+A513-10200-011,96345,McKnight Steel & Tube,5/19/2026,JC,C541910,145 ft,PASS,PASS,PASS,PASS,LOT ACCEPTED,,0.05,0.439,,
+A513-10200-021,96103,Pennar Ind,5/28/2026,GB,C590585,50874,PASS,PASS,PASS,PASS,LOT ACCEPTED,33.22,,,30.24,
+A513-10200-021,96147,PENNAR INDUSTRIES LTD,5/28/2026,GB,C92837,50874,PASS,PASS,PASS,PASS,LOT ACCEPTED,,,33.31,,30.24

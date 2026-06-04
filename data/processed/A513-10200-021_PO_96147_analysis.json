@@ -1,0 +1,185 @@
+{
+    "material_info": {
+        "supplier": "PENNAR INDUSTRIES LTD",
+        "item_number": "A513-10200-021",
+        "part_number": "A513-10200-021",
+        "po_number": "96147",
+        "quantity": "50874",
+        "heat_number": "C92837",
+        "inspection_date": "5/28/2026",
+        "inspector": "GB",
+        "sample_size": "5"
+    },
+    "measurements": [
+        {
+            "measurement": "Outside Diameter (OD)",
+            "lsl": "33.02",
+            "usl": "33.42",
+            "average": "33.31",
+            "min": "33.02",
+            "max": "33.42",
+            "instrument": "",
+            "result": "PASS"
+        },
+        {
+            "measurement": "Inside Diameter (ID)",
+            "lsl": "30.17",
+            "usl": "30.27",
+            "average": "30.24",
+            "min": "30.22",
+            "max": "30.27",
+            "instrument": "",
+            "result": "PASS"
+        }
+    ],
+    "certificate": {
+        "supplier_name": "PENNAR INDUSTRIES LTD",
+        "heat_number": "C92837",
+        "material_description": "Steel, Carbon CEW-2 tubes oil draw",
+        "material_grade": "CEW-2",
+        "purchase_order": "96147",
+        "outside_diameter": "33.22 +0.05 / -0.00",
+        "inside_diameter": "30.24 +0.05 / 0.00",
+        "wall_thickness": "1.52 +0.10 / -0.10",
+        "length": "5684 +1.00 / -1.00",
+        "straightness": "0.65 / 0.70",
+        "yield_strength": "559",
+        "tensile_strength": "686",
+        "elongation": "N.S",
+        "hardness": "",
+        "chemical_composition": {
+            "C": "0.200",
+            "Mn": "0.504",
+            "P": "0.008",
+            "S": "0.010",
+            "Si": "N.S",
+            "Al": "N.S",
+            "N": "N.S",
+            "Cr": "",
+            "Ni": "",
+            "Mo": "",
+            "Cu": ""
+        },
+        "chemical_specified": {
+            "C": "0.25 Max",
+            "Mn": "1.20 Max",
+            "P": "0.040 Max",
+            "S": "0.040 Max",
+            "Si": "",
+            "Al": "",
+            "N": "",
+            "Cr": "",
+            "Ni": "",
+            "Mo": "",
+            "Cu": ""
+        },
+        "mechanical_specified": {
+            "yield_strength": "490 Min",
+            "tensile_strength": "550 Min",
+            "elongation": "",
+            "hardness": ""
+        },
+        "mechanical_properties": [
+            {
+                "property": "Yield Strength N/mm2",
+                "specified": "490 Min",
+                "observed": "559",
+                "unit": "N/mm2",
+                "result": "PASS"
+            },
+            {
+                "property": "Tensile Strength N/mm2",
+                "specified": "550 Min",
+                "observed": "686",
+                "unit": "N/mm2",
+                "result": "PASS"
+            },
+            {
+                "property": "Elongation %",
+                "specified": "",
+                "observed": "N.S",
+                "unit": "%",
+                "result": ""
+            }
+        ],
+        "dimensional_specified": {
+            "outside_diameter": "+0.05 / -0.00",
+            "inside_diameter": "+0.05 / 0.00",
+            "wall_thickness": "+0.10 / -0.10",
+            "length": "+1.00 / -1.00",
+            "straightness": "0.65 / 0.70"
+        },
+        "certificate_status_notes": "All tubes passed through Eddy Current Test; surface free from scratches/damages; bundles tagged as per customer requirement.",
+        "certificate_review_result": "PASS"
+    },
+    "validation": {
+        "heat_number_match": "PASS",
+        "po_number_match": "PASS",
+        "material_review": "PASS",
+        "certificate_review_status": "PASS",
+        "final_lot_decision": "LOT ACCEPTED",
+        "measurements_result": "PASS",
+        "rejection_reason": ""
+    },
+    "material_specification": {
+        "source_file": "data/material_specs\\material_specification.xlsx",
+        "item_number": "A513-10200-021",
+        "reference_specification": "IS 3074",
+        "material_grade": "CEW-2",
+        "material_description": "Steel, Carbon",
+        "dimensions": [
+            {
+                "measurement": "OD",
+                "nominal": "33.22 mm",
+                "tolerance": "+/- 0.2 mm",
+                "lsl": 33.019999999999996,
+                "usl": 33.42
+            },
+            {
+                "measurement": "ID",
+                "nominal": "30.22 mm",
+                "tolerance": "+ 0.05 mm / - 0",
+                "lsl": 30.169999999999998,
+                "usl": 30.27
+            },
+            {
+                "measurement": "Wall",
+                "nominal": "1.5 mm",
+                "tolerance": "+/- 0.1 mm",
+                "lsl": 1.4,
+                "usl": 1.6
+            }
+        ],
+        "mechanical_properties": {
+            "yield_strength": "450 MPa Min",
+            "tensile_strength": "550 MPa Min",
+            "elongation": "25% Min",
+            "hardness": ""
+        },
+        "chemical_properties": {
+            "C": "0.25 Max",
+            "Mn": "1.20 Max",
+            "P": "0.04 Max",
+            "S": "0.04 Max",
+            "Si": "",
+            "Al": "",
+            "N": "",
+            "Cr": "",
+            "Ni": "",
+            "Mo": "",
+            "Cu": ""
+        },
+        "required_sections": [
+            "chemical",
+            "mechanical",
+            "dimensional"
+        ],
+        "required_dimensional_properties": [
+            "OD",
+            "ID",
+            "Wall",
+            "Length",
+            "Straightness"
+        ]
+    }
+}
