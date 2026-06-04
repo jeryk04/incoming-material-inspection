@@ -354,25 +354,24 @@ def _build_header_table(material_info):
     col5_w    = CONTENT_WIDTH - company_w - col2_w - col3_w - col4_w
 
     data = [
-        # Row 0: company block (spans all rows) | title (spans rows 0-1) | empty top-right
-        [_build_company_block(company_w), "", title, "", "", ""],
-        # Row 1: (spanned) | (spanned) | Inspection Date
-        ["", "", "", "", _para("Inspection Date", bold=True),
+        # Row 0: company block (spans all rows) | title (spans rows 0-1) | Inspection Date
+        [_build_company_block(company_w), "", title, "",
+         _para("Inspection Date", bold=True),
          _para(_mi(material_info, "inspection_date"))],
-        # Row 2: (spanned) | Supplier | PO
-        ["", "", _para("Supplier", bold=True),
-         _para(_mi(material_info, "supplier")),
+        # Row 1: (spanned) | (title span) | PO No.
+        ["", "", "", "",
          _para("PO No.", bold=True),
          _para(_po_number(material_info), bold=True)],
-        # Row 3: (spanned) | Item / Part No. | Heat No.
-        ["", "", _para("Item / Part No.", bold=True),
-         _para(_mi(material_info, "item_number") or _mi(material_info, "part_number"), bold=True),
+        # Row 2: (spanned) | Supplier | Heat No.
+        ["", "", _para("Supplier", bold=True),
+         _para(_mi(material_info, "supplier")),
          _para("Heat No.", bold=True),
          _para(_mi(material_info, "heat_number"), bold=True)],
-        # Row 4: (spanned) | Quantity
-        ["", "", _para("Quantity", bold=True),
-         _para(_mi(material_info, "quantity")),
-         "", ""],
+        # Row 3: (spanned) | Item / Part No. | Quantity
+        ["", "", _para("Item / Part No.", bold=True),
+         _para(_mi(material_info, "item_number") or _mi(material_info, "part_number"), bold=True),
+         _para("Quantity", bold=True),
+         _para(_mi(material_info, "quantity"))],
     ]
 
     widths = [1.40 * inch, 1.00 * inch, col2_w, col3_w, col4_w, col5_w]
@@ -380,21 +379,20 @@ def _build_header_table(material_info):
     table = Table(
         data,
         colWidths=widths,
-        rowHeights=[None, 0.27 * inch, 0.27 * inch, 0.27 * inch, 0.27 * inch],
+        rowHeights=[None, 0.27 * inch, 0.27 * inch, 0.27 * inch],
     )
     table.setStyle(TableStyle(
         _base_style(FONT_BODY)
         + [
-            ("SPAN",       (0, 0), (1, 4)),  # company block: cols 0-1, all 5 rows
+            ("SPAN",       (0, 0), (1, 3)),  # company block: cols 0-1, all 4 rows
             ("SPAN",       (2, 0), (3, 1)),  # title: cols 2-3, rows 0-1
-            ("SPAN",       (4, 0), (5, 0)),  # empty top-right span
-            ("VALIGN",     (0, 0), (1, 4), "TOP"),
-            ("LEFTPADDING",  (0, 0), (1, 4), 0),
-            ("TOPPADDING",   (0, 0), (1, 4), 0),
-            ("RIGHTPADDING", (0, 0), (1, 4), 0),
-            ("BOTTOMPADDING",(0, 0), (1, 4), 0),
-            ("BACKGROUND", (2, 2), (2, 4), LABEL_BG),
-            ("BACKGROUND", (4, 1), (4, 4), LABEL_BG),
+            ("VALIGN",     (0, 0), (1, 3), "TOP"),
+            ("LEFTPADDING",  (0, 0), (1, 3), 0),
+            ("TOPPADDING",   (0, 0), (1, 3), 0),
+            ("RIGHTPADDING", (0, 0), (1, 3), 0),
+            ("BOTTOMPADDING",(0, 0), (1, 3), 0),
+            ("BACKGROUND", (2, 2), (2, 3), LABEL_BG),
+            ("BACKGROUND", (4, 0), (4, 3), LABEL_BG),
         ]
     ))
     return table
@@ -1238,8 +1236,7 @@ def _build_conclusion_table(final_result):
 
 def _build_signature_table(material_info):
     """
-    Professional three-column footer:
-      Inspected By  |  Reviewed By  |  Official Stamp
+    Two-column footer: Inspected By (with initials + date) | QC Dept automatic stamp.
     """
     inspector = _mi(material_info, "inspector")
     date      = _mi(material_info, "inspection_date")
@@ -1255,59 +1252,70 @@ def _build_signature_table(material_info):
     s_dept = ParagraphStyle("SigDept", fontName="Helvetica-Oblique",
         fontSize=FONT_TINY, leading=FONT_TINY + 2, alignment=TA_CENTER,
         textColor=colors.HexColor("#555555"))
-    s_stamp = ParagraphStyle("StampText", fontName="Helvetica",
-        fontSize=FONT_SMALL, leading=FONT_SMALL + 2, alignment=TA_CENTER,
-        textColor=colors.HexColor("#CCCCCC"))
 
-    sig_line = "_" * 36
-    col_w = CONTENT_WIDTH / 3.0
-    inner_w = col_w - 0.16 * inch
+    col_w_insp  = CONTENT_WIDTH * 0.65
+    col_w_stamp = CONTENT_WIDTH * 0.35
+    inner_insp  = col_w_insp  - 0.20 * inch
+    inner_stamp = col_w_stamp - 0.20 * inch
 
-    def _make_sig_block(role, name, dept):
-        rows = [
-            [Paragraph(role, s_role)],
-            [Spacer(1, 3)],
-            [Paragraph(sig_line, s_name)],
-            [Paragraph(name, s_sub)],
-            [Paragraph(dept, s_dept)],
-        ]
-        t = Table(rows, colWidths=[inner_w])
-        t.setStyle(TableStyle([
-            ("ALIGN",          (0, 0), (-1, -1), "CENTER"),
-            ("LEFTPADDING",    (0, 0), (-1, -1), 3),
-            ("RIGHTPADDING",   (0, 0), (-1, -1), 3),
-            ("TOPPADDING",     (0, 0), (-1, -1), 1),
-            ("BOTTOMPADDING",  (0, 0), (-1, -1), 1),
-        ]))
-        return t
-
+    sig_line  = "_" * 40
     date_note = f"Date: {date}" if date else ""
-    insp_name = f"{inspector}   {date_note}".strip() if date_note else inspector
+    insp_line = f"{inspector}   {date_note}".strip() if date_note else inspector
 
-    insp_block  = _make_sig_block("Inspected By",  insp_name, "INCOMING INSPECTION DEPT.")
-    review_block = _make_sig_block("Reviewed By",  "",         "QUALITY ASSURANCE DEPT.")
+    insp_t = Table(
+        [
+            [Paragraph("Inspected By", s_role)],
+            [Spacer(1, 4)],
+            [Paragraph(sig_line, s_name)],
+            [Paragraph(insp_line, s_sub)],
+            [Paragraph("QUALITY CONTROL DEPT.", s_dept)],
+        ],
+        colWidths=[inner_insp],
+    )
+    insp_t.setStyle(TableStyle([
+        ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+        ("LEFTPADDING",   (0, 0), (-1, -1), 3),
+        ("RIGHTPADDING",  (0, 0), (-1, -1), 3),
+        ("TOPPADDING",    (0, 0), (-1, -1), 1),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 1),
+    ]))
+
+    s_sc = ParagraphStyle("SCName", fontName="Helvetica-Bold",
+        fontSize=FONT_SMALL, leading=FONT_SMALL + 3, alignment=TA_CENTER,
+        textColor=PASS_TEXT)
+    s_sd = ParagraphStyle("SCDept", fontName="Helvetica-Bold",
+        fontSize=FONT_BODY, leading=FONT_BODY + 3, alignment=TA_CENTER,
+        textColor=PASS_TEXT)
 
     stamp_t = Table(
-        [[Paragraph("OFFICIAL STAMP", s_stamp)]],
-        colWidths=[inner_w],
+        [
+            [Paragraph(COMPANY_NAME, s_sc)],
+            [Spacer(1, 4)],
+            [Paragraph("QUALITY CONTROL", s_sd)],
+            [Paragraph("DEPARTMENT", s_sd)],
+        ],
+        colWidths=[inner_stamp],
     )
     stamp_t.setStyle(TableStyle([
-        ("ALIGN",  (0, 0), (-1, -1), "CENTER"),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+        ("ALIGN",         (0, 0), (-1, -1), "CENTER"),
+        ("VALIGN",        (0, 0), (-1, -1), "MIDDLE"),
+        ("BOX",           (0, 0), (-1, -1), 1.5, PASS_TEXT),
         ("LEFTPADDING",   (0, 0), (-1, -1), 6),
         ("RIGHTPADDING",  (0, 0), (-1, -1), 6),
+        ("TOPPADDING",    (0, 0), (-1, -1), 3),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
     ]))
 
     outer = Table(
-        [[insp_block, review_block, stamp_t]],
-        colWidths=[col_w] * 3,
+        [[insp_t, stamp_t]],
+        colWidths=[col_w_insp, col_w_stamp],
         rowHeights=[1.40 * inch],
     )
     outer.setStyle(TableStyle([
         ("GRID",       (0, 0), (-1, -1), GRID_WIDTH, GRID_COLOR),
         ("VALIGN",     (0, 0), (-1, -1), "MIDDLE"),
         ("ALIGN",      (0, 0), (-1, -1), "CENTER"),
-        ("BACKGROUND", (2, 0), (2,  0),  colors.HexColor("#F8F8F8")),
+        ("BACKGROUND", (1, 0), (1,  0),  HEADER_BG),
     ]))
     return outer
 
