@@ -534,28 +534,19 @@ def extract_po_from_page1(pdf_path):
 
 def get_all_incoming_pdfs():
     """
-    Get all valid incoming PDFs from data/incomings.
+    Get all PDFs from data/incomings. Any filename is accepted — item# and
+    PO# are read from the document content, not the filename.
     """
     if not os.path.exists(INCOMING_FOLDER):
         os.makedirs(INCOMING_FOLDER, exist_ok=True)
 
-    pdf_files = []
-
-    for file_name in os.listdir(INCOMING_FOLDER):
-        if not file_name.lower().endswith(".pdf"):
-            continue
-
-        item_number, po_number = get_item_po_from_filename(file_name)
-
-        if item_number and po_number:
-            full_path = os.path.join(INCOMING_FOLDER, file_name)
-            pdf_files.append(full_path)
-        else:
-            print(f"Skipping invalid file name: {file_name}")
-            print("Expected format: ItemNumber PO#PONumber.pdf")
+    pdf_files = [
+        os.path.join(INCOMING_FOLDER, f)
+        for f in os.listdir(INCOMING_FOLDER)
+        if f.lower().endswith(".pdf")
+    ]
 
     pdf_files.sort()
-
     return pdf_files
 
 
@@ -875,9 +866,10 @@ def process_single_pdf(pdf_path):
     Analyze one PDF, generate one report, and return a summary row dict.
     """
     file_name = os.path.basename(pdf_path)
+    file_stem = safe_filename(os.path.splitext(file_name)[0])
     filename_item, filename_po = get_item_po_from_filename(file_name)
 
-    # Resolve PO: page 1 text first, filename as fallback
+    # Resolve PO from page 1 text or filename hint (both are fallbacks to AI)
     page1_po = extract_po_from_page1(pdf_path)
     resolved_po = page1_po or filename_po
 
@@ -885,27 +877,18 @@ def process_single_pdf(pdf_path):
     print("PROCESSING INCOMING PDF")
     print("========================================")
     print(pdf_path)
-    print(f"Item from filename:  {filename_item}")
-    print(f"PO from filename:    {filename_po}")
-    print(f"PO from page 1:      {page1_po or '(not found)'}")
-    print(f"PO resolved:         {resolved_po}")
 
     try:
-        material_spec = lookup_material_spec(filename_item)
+        material_spec = lookup_material_spec(filename_item) if filename_item else None
     except Exception as error:
         material_spec = None
         print("Material specification database could not be read.")
         print(error)
 
-    if material_spec:
-        print("Material specification found:")
-        print(material_spec.get("reference_specification", ""))
-    else:
-        print("Material specification not found in data/material_specs.")
-
+    # Cache file named after the PDF stem so any filename is accepted
     json_output_path = os.path.join(
         PROCESSED_FOLDER,
-        f"{safe_filename(filename_item)}_PO_{safe_filename(resolved_po)}_analysis.json"
+        f"{file_stem}_analysis.json"
     )
 
     # Use cached JSON if it exists to avoid unnecessary API calls.
@@ -916,6 +899,21 @@ def process_single_pdf(pdf_path):
         print(f"  [CACHE] Loaded existing analysis: {json_output_path}")
     else:
         data = analyze_incoming_pdf(pdf_path, material_spec=material_spec)
+
+    # If spec not found by filename, retry with AI-extracted item number
+    if not material_spec:
+        ai_item = clean_text(data.get("material_info", {}).get("item_number", ""))
+        if ai_item:
+            try:
+                material_spec = lookup_material_spec(ai_item)
+            except Exception:
+                pass
+
+    if material_spec:
+        print("Material specification found:")
+        print(material_spec.get("reference_specification", ""))
+    else:
+        print("Material specification not found in data/material_specs.")
 
     if material_spec:
         has_chem = any(material_spec.get("chemical_properties", {}).values())
@@ -1040,11 +1038,8 @@ def main():
     incoming_pdfs = get_all_incoming_pdfs()
 
     if not incoming_pdfs:
-        print("\nERROR: No valid incoming PDFs found.")
-        print("Put PDFs in data/incomings with this format:")
-        print("ItemNumber PO#PONumber.pdf")
-        print("\nExample:")
-        print("A513-10200-011 PO#96345.pdf")
+        print("\nERROR: No PDFs found in data/incomings.")
+        print("Drop any PDF into data/incomings and re-run.")
         return
 
     print("\nPDF files found:")
