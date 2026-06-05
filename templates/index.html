@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Incoming Inspection Dashboard</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f0f2f5;
+      color: #1a1a1a;
+    }
+
+    header {
+      background: #1b2a3b;
+      color: #fff;
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 600; letter-spacing: 0.02em; }
+    header .sub { font-size: 0.78rem; color: #8fa8c4; margin-top: 2px; }
+    #last-refresh { font-size: 0.72rem; color: #8fa8c4; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px 20px; }
+
+    /* Stats */
+    .stats { display: flex; gap: 16px; margin-bottom: 24px; }
+    .stat-card {
+      flex: 1;
+      background: #fff;
+      border-radius: 8px;
+      padding: 18px 24px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      border-left: 4px solid #ccc;
+    }
+    .stat-card.total  { border-color: #4a90d9; }
+    .stat-card.accept { border-color: #27ae60; }
+    .stat-card.reject { border-color: #e74c3c; }
+    .stat-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #666; }
+    .stat-value { font-size: 2rem; font-weight: 700; margin-top: 4px; }
+    .stat-card.total  .stat-value { color: #4a90d9; }
+    .stat-card.accept .stat-value { color: #27ae60; }
+    .stat-card.reject .stat-value { color: #e74c3c; }
+
+    /* Section header */
+    .section-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #555;
+      margin-bottom: 10px;
+    }
+
+    /* Results table */
+    .table-wrap {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      overflow-x: auto;
+      margin-bottom: 24px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.84rem; }
+    thead th {
+      background: #1b2a3b;
+      color: #c8d8ea;
+      text-align: left;
+      padding: 10px 14px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+    tbody tr { border-bottom: 1px solid #eee; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody td { padding: 9px 14px; white-space: nowrap; }
+    tbody tr:hover { background: #f7f9fb; }
+
+    tbody tr.accepted { background: #f0faf4; }
+    tbody tr.accepted:hover { background: #e4f5ea; }
+    tbody tr.rejected { background: #fff5f5; }
+    tbody tr.rejected:hover { background: #ffe8e8; }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .badge.accepted { background: #d4edda; color: #155724; }
+    .badge.rejected { background: #f8d7da; color: #721c24; }
+    .badge.pass     { background: #d4edda; color: #155724; }
+    .badge.fail     { background: #f8d7da; color: #721c24; }
+    .badge.review   { background: #fff3cd; color: #856404; }
+
+    a.report-link {
+      color: #4a90d9;
+      text-decoration: none;
+      font-size: 0.78rem;
+    }
+    a.report-link:hover { text-decoration: underline; }
+    .no-report { color: #bbb; font-size: 0.78rem; }
+
+    /* Log panel */
+    .log-panel {
+      background: #111820;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+      padding: 0;
+      overflow: hidden;
+    }
+    .log-header {
+      background: #1b2a3b;
+      color: #8fa8c4;
+      padding: 10px 16px;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .log-header .live-dot {
+      width: 7px; height: 7px;
+      background: #27ae60;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 7px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    .log-line.completed-accept { color: #4caf7d; font-weight: bold; }
+    .log-line.completed-reject { color: #ff6b6b; font-weight: bold; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>G &amp; J Steel &amp; Tubing — Incoming Inspection Dashboard</h1>
+    <div class="sub">Automated material certificate analysis &amp; QC log</div>
+  </div>
+  <div id="last-refresh">–</div>
+</header>
+
+<div class="container">
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat-card total">
+      <div class="stat-label">Total Processed</div>
+      <div class="stat-value" id="stat-total">–</div>
+    </div>
+    <div class="stat-card accept">
+      <div class="stat-label">Lots Accepted</div>
+      <div class="stat-value" id="stat-accepted">–</div>
+    </div>
+    <div class="stat-card reject">
+      <div class="stat-label">Lots Rejected</div>
+      <div class="stat-value" id="stat-rejected">–</div>
+    </div>
+  </div>
+
+  <!-- Results Table -->
+  <div class="section-title">Inspection Results</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Item #</th>
+          <th>PO #</th>
+          <th>Supplier</th>
+          <th>Date</th>
+          <th>Inspector</th>
+          <th>Heat #</th>
+          <th>Qty</th>
+          <th>Measurements</th>
+          <th>Heat Match</th>
+          <th>PO Match</th>
+          <th>Final Result</th>
+          <th>Report</th>
+        </tr>
+      </thead>
+      <tbody id="results-body">
+        <tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px;">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+
+</div>
+
+<script>
+  function badge(value, type) {
+    if (!value) return '<span class="no-report">–</span>';
+    const v = String(value).toUpperCase();
+    let cls = '';
+    if (type === 'final') {
+      cls = v.includes('ACCEPTED') ? 'accepted' : v.includes('REJECTED') ? 'rejected' : 'review';
+    } else {
+      cls = v === 'PASS' ? 'pass' : v === 'FAIL' ? 'fail' : 'review';
+    }
+    return `<span class="badge ${cls}">${value}</span>`;
+  }
+
+  function cell(v) {
+    return `<td>${v || '–'}</td>`;
+  }
+
+  async function loadStats() {
+    try {
+      const r = await fetch('/api/stats');
+      const d = await r.json();
+      document.getElementById('stat-total').textContent    = d.total    ?? '–';
+      document.getElementById('stat-accepted').textContent = d.accepted ?? '–';
+      document.getElementById('stat-rejected').textContent = d.rejected ?? '–';
+    } catch(e) {}
+  }
+
+  async function loadResults() {
+    try {
+      const r = await fetch('/api/results');
+      const rows = await r.json();
+      const tbody = document.getElementById('results-body');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px;">No results yet.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(row => {
+        const final = String(row.final_result || '');
+        const rowClass = final.includes('ACCEPTED') ? 'accepted' : final.includes('REJECTED') ? 'rejected' : '';
+        const reportHtml = row.report
+          ? `<a class="report-link" href="/reports/${encodeURIComponent(row.report)}" target="_blank">View PDF</a>`
+          : '<span class="no-report">–</span>';
+        return `<tr class="${rowClass}">
+          ${cell(row.item_number)}
+          ${cell(row.po_number)}
+          ${cell(row.supplier)}
+          ${cell(row.inspection_date)}
+          ${cell(row.inspector)}
+          ${cell(row.heat_number)}
+          ${cell(row.quantity)}
+          <td>${badge(final.includes('ACCEPTED') ? 'PASS' : row.measurements_result, 'measure')}</td>
+          <td>${badge(row.heat_match, 'match')}</td>
+          <td>${badge(row.po_match, 'match')}</td>
+          <td>${badge(row.final_result, 'final')}</td>
+          <td>${reportHtml}</td>
+        </tr>`;
+      }).join('');
+    } catch(e) {}
+  }
+
+  function refreshAll() {
+    loadStats();
+    loadResults();
+    const now = new Date();
+    document.getElementById('last-refresh').textContent =
+      'Refreshed ' + now.toLocaleTimeString();
+  }
+
+  refreshAll();
+  setInterval(refreshAll, 15000);
+</script>
+
+</body>
+</html>

@@ -3,7 +3,7 @@ import re
 import pandas as pd
 
 from ai_certificate_analyzer import analyze_incoming_pdf, save_analysis_json
-from material_spec_database import lookup_material_spec
+from material_spec_database import lookup_material_spec, fuzzy_lookup_material_spec
 from report_generator import create_inspection_pdf
 from spec_limits_lookup import lookup_specification_limits
 
@@ -824,9 +824,26 @@ def build_material_info(data, filename_item="", filename_po="", material_spec=No
 def determine_final_result(data, results_df):
     """
     Decide final lot result.
-    Only FAIL measurements from the inspection sheet trigger rejection.
-    Empty cert fields (N.A, not tested) are not treated as failures.
+
+    The inspector's Lot Disposition on the incoming inspection sheet is the
+    authority.  If the inspector approved the lot it is accepted even when
+    individual measurements fall outside tolerance.  Only an explicit
+    rejection in that field, or the absence of any disposition combined with
+    failing measurements, results in LOT REJECTED.
     """
+    disposition = clean_text(
+        data.get("material_info", {}).get("lot_disposition", "")
+    ).upper()
+
+    if disposition:
+        rejected_tokens = {"REJECT", "REJECTED"}
+        if any(tok in disposition for tok in rejected_tokens):
+            return "LOT REJECTED"
+        # Any other written disposition (Approved, Accepted, Conditional, Hold…)
+        # means the inspector released the lot.
+        return "LOT ACCEPTED"
+
+    # No disposition recorded — fall back to measurement results.
     if not results_df.empty and any(results_df["result"] == "FAIL"):
         return "LOT REJECTED"
 
@@ -900,12 +917,22 @@ def process_single_pdf(pdf_path):
     else:
         data = analyze_incoming_pdf(pdf_path, material_spec=material_spec)
 
-    # If spec not found by filename, retry with AI-extracted item number
+    # If spec not found by filename, retry with AI-extracted item number (exact, then fuzzy)
     if not material_spec:
         ai_item = clean_text(data.get("material_info", {}).get("item_number", ""))
         if ai_item:
             try:
                 material_spec = lookup_material_spec(ai_item)
+            except Exception:
+                pass
+        # Fuzzy fallback: handles OCR misreads (e.g. A263 vs A269, 9→3 confusion)
+        if not material_spec and ai_item:
+            try:
+                material_spec = fuzzy_lookup_material_spec(ai_item)
+                if material_spec:
+                    # Correct the misread item number so the report filename is right
+                    data.setdefault("material_info", {})["item_number"] = material_spec["item_number"]
+                    data["material_info"]["part_number"] = material_spec["item_number"]
             except Exception:
                 pass
 
@@ -926,7 +953,10 @@ def process_single_pdf(pdf_path):
             # are material descriptions, not grade numbers, and produce wrong lookups.
             cert_grade = clean_text(data.get("certificate", {}).get("material_grade", ""))
             db_grade = clean_text(material_spec.get("material_grade", ""))
-            grade = cert_grade if re.search(r"\d", cert_grade) else db_grade
+            # Prefer the DB grade (what quality intentionally specified, e.g. "TP316L")
+            # over the cert grade (e.g. "316/316L" which strips to "316" and picks wrong limits).
+            # Fall back to cert grade only when DB grade is absent.
+            grade = db_grade if db_grade else (cert_grade if re.search(r"\d", cert_grade) else "")
 
             online_limits = lookup_specification_limits(ref_spec, grade)
 
@@ -958,7 +988,6 @@ def process_single_pdf(pdf_path):
 
     final_result = determine_final_result(data, results_df)
     sync_validation_with_report_result(data, results_df, final_result)
-    save_analysis_json(data, json_output_path)
 
     item_number = (
         clean_text(material_info.get("item_number", ""))
@@ -973,6 +1002,15 @@ def process_single_pdf(pdf_path):
     output_filename = f"{safe_filename(item_number)}_PO_{safe_filename(po_number)}.pdf"
     report_output_path = os.path.join(REPORTS_FOLDER, output_filename)
 
+    # Remove stale report if the item number was corrected since the last run.
+    previous_report = data.get("_report_path", "")
+    if previous_report and previous_report != report_output_path:
+        try:
+            os.remove(previous_report)
+            print(f"Removed outdated report: {previous_report}")
+        except OSError:
+            pass
+
     create_inspection_pdf(
         report_output_path,
         material_info,
@@ -980,6 +1018,11 @@ def process_single_pdf(pdf_path):
         summary_df,
         final_result
     )
+
+    # Persist the report path so a future re-run can clean it up if the name changes.
+    data["_report_path"] = report_output_path
+    data["_source_pdf"] = file_stem
+    save_analysis_json(data, json_output_path)
 
     print("AI analysis saved:")
     print(json_output_path)
@@ -990,6 +1033,7 @@ def process_single_pdf(pdf_path):
     validation = data.get("validation", {})
 
     summary_row = {
+        "source_pdf": file_stem,
         "item_number": item_number,
         "po_number": po_number,
         "supplier": clean_text(material_info.get("supplier", "")),

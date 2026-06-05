@@ -4,8 +4,8 @@ import ast
 import base64
 
 import fitz  # PyMuPDF
+import anthropic
 from dotenv import load_dotenv
-from openai import OpenAI
 
 from material_spec_database import spec_to_prompt_text
 
@@ -154,7 +154,8 @@ Required JSON format:
     "heat_number": "",
     "inspection_date": "",
     "inspector": "",
-    "sample_size": ""
+    "sample_size": "",
+    "lot_disposition": ""
   }},
   "measurements": [
     {{
@@ -226,6 +227,7 @@ Required JSON format:
 }}
 
 Important rules:
+- lot_disposition: extract the inspector's final Lot Disposition decision exactly as written on Page 1 of the inspection sheet (e.g. "Approved", "Accepted", "Rejected", "Hold", "Conditional Release"). If the field is blank or not visible, use an empty string. Do NOT infer this from measurements — read only what is physically written in the Lot Disposition field.
 - item_number and part_number can be the same if only one is visible.
 - If a value is completely absent from the certificate, use an empty string. If a cell shows "N.A", "N/A", "N.S", "N.S.", "N.T.", "Not Tested", or similar, extract that text exactly as printed (e.g. "N.A" or "N.S") — do NOT use empty string for these.
 - For each measurement, calculate average if sample readings are visible.
@@ -287,12 +289,18 @@ def _analyze_with_text(page_texts, material_spec, client):
     prompt = _build_prompt(material_spec, content_description)
     full_input = f"{prompt}\n\nExtracted PDF text:\n\n{pages_block}"
 
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[{"role": "user", "content": full_input}]
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=8096,
+        system=(
+            "You are a precise manufacturing quality assurance assistant. "
+            "You extract data from incoming inspection documents and supplier material test certificates. "
+            "You always return valid JSON only — no markdown, no explanation, no extra text."
+        ),
+        messages=[{"role": "user", "content": full_input}]
     )
 
-    return parse_ai_json(response.output_text)
+    return parse_ai_json(response.content[0].text)
 
 
 # ── Vision-based analysis (scanned PDFs) ─────────────────────────────────────
@@ -308,19 +316,30 @@ def _analyze_with_vision(pdf_path, material_spec, client):
 
     prompt = _build_prompt(material_spec, content_description)
 
-    content = [{"type": "input_text", "text": prompt}]
+    content = [{"type": "text", "text": prompt}]
     for image_base64 in page_images:
         content.append({
-            "type": "input_image",
-            "image_url": f"data:image/png;base64,{image_base64}"
+            "type": "image",
+            "source": {
+                "type": "base64",
+                "media_type": "image/png",
+                "data": image_base64,
+            }
         })
 
-    response = client.responses.create(
-        model="gpt-4.1-mini",
-        input=[{"role": "user", "content": content}]
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=8096,
+        system=(
+            "You are a precise manufacturing quality assurance assistant. "
+            "You extract data from incoming inspection documents and supplier material test certificates. "
+            "Read every value exactly as printed — do not guess or infer. "
+            "You always return valid JSON only — no markdown, no explanation, no extra text."
+        ),
+        messages=[{"role": "user", "content": content}]
     )
 
-    return parse_ai_json(response.output_text)
+    return parse_ai_json(response.content[0].text)
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -336,11 +355,11 @@ def analyze_incoming_pdf(pdf_path, material_spec=None):
 
     Returns one JSON object with: material_info, measurements, certificate, validation.
     """
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
-        raise ValueError("OPENAI_API_KEY not found. Check your .env file.")
+        raise ValueError("ANTHROPIC_API_KEY not found. Check your .env file.")
 
-    client = OpenAI(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key)
 
     page_texts = extract_pdf_text(pdf_path, max_pages=2)
     total_chars = sum(len(t) for t in page_texts)

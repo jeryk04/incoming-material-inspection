@@ -2,8 +2,8 @@ import os
 import re
 import json
 
+import anthropic
 from dotenv import load_dotenv
-from openai import OpenAI
 
 from ai_certificate_analyzer import parse_ai_json
 
@@ -71,15 +71,15 @@ def lookup_specification_limits(reference_specification, material_grade):
     primary = _primary_grade(material_grade)
     print(f"Looking up spec limits online: {reference_specification} {primary}")
 
-    api_key = os.getenv("OPENAI_API_KEY")
+    api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         return {}
 
-    client = OpenAI(api_key=api_key)
+    client = anthropic.Anthropic(api_key=api_key)
 
-    prompt = f"""You are a materials engineering expert with access to web search.
+    prompt = f"""You are a materials engineering expert.
 
-Search the internet for the published standard and return:
+Using your knowledge of published standards, return:
 1. The exact chemical composition limits
 2. The exact mechanical property requirements
 3. Which inspection sections are required by this standard
@@ -141,25 +141,20 @@ Rules for required_dimensional_properties (only when "dimensional" is in require
     result = {}
 
     try:
-        response = client.responses.create(
-            model="gpt-4o",
-            tools=[{"type": "web_search_preview"}],
-            input=[{"role": "user", "content": prompt}]
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            system=(
+                "You are a materials engineering expert with deep knowledge of ASTM, EN, ISO, "
+                "and other international material standards. "
+                "Return valid JSON only — no markdown, no explanation, no extra text."
+            ),
+            messages=[{"role": "user", "content": prompt}]
         )
-        result = parse_ai_json(response.output_text)
+        result = parse_ai_json(response.content[0].text)
     except Exception as error:
-        print(f"Web search unavailable ({error}), using AI training knowledge.")
-
-    if not result.get("chemical_properties") and not result.get("mechanical_properties"):
-        try:
-            response = client.responses.create(
-                model="gpt-4.1-mini",
-                input=[{"role": "user", "content": prompt}]
-            )
-            result = parse_ai_json(response.output_text)
-        except Exception as error:
-            print(f"Spec limits lookup failed: {error}")
-            return {}
+        print(f"Spec limits lookup failed: {error}")
+        return {}
 
     # Default: show all sections if AI did not return required_sections
     if "required_sections" not in result:

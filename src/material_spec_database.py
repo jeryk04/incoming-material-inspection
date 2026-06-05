@@ -1,5 +1,6 @@
 import os
 import re
+from difflib import SequenceMatcher
 
 import pandas as pd
 
@@ -471,6 +472,89 @@ def lookup_material_spec(item_number, spec_path=None):
             }
 
     return None
+
+
+def fuzzy_lookup_material_spec(item_number, spec_path=None, threshold=0.78):
+    """
+    Fuzzy fallback for lookup_material_spec.
+
+    Scanned PDFs often misread one or two characters (9→3, A→P, 8→3, etc.).
+    Uses two strategies:
+    1. Full string similarity (SequenceMatcher).
+    2. Suffix similarity — compares everything after the first character, since
+       the leading letter is frequently misread (A→P, A→R, etc.) while the rest
+       of the item number is more reliably read.
+    Returns the best match that passes either strategy at the given threshold.
+    """
+    paths = [spec_path] if spec_path else _existing_files()
+    if not paths:
+        return None
+
+    table = None
+    path = None
+    for candidate_path in paths:
+        try:
+            table = _read_spec_table(candidate_path)
+            path = candidate_path
+            break
+        except Exception:
+            pass
+
+    if table is None:
+        return None
+
+    mapped_columns = _map_columns(table.columns)
+    item_column = mapped_columns.get("item_number")
+    if not item_column:
+        return None
+
+    wanted = normalize_item_number(item_number)
+    if not wanted:
+        return None
+
+    wanted_suffix = wanted[1:] if len(wanted) > 1 else wanted
+
+    best_row = None
+    best_score = 0.0
+
+    for _, row in table.iterrows():
+        row_item = normalize_item_number(row.get(item_column, ""))
+        if not row_item:
+            continue
+
+        full_ratio = SequenceMatcher(None, wanted, row_item).ratio()
+
+        row_suffix = row_item[1:] if len(row_item) > 1 else row_item
+        suffix_ratio = SequenceMatcher(None, wanted_suffix, row_suffix).ratio()
+
+        # Weight: suffix match counts for 60%, full match for 40%
+        score = 0.4 * full_ratio + 0.6 * suffix_ratio
+
+        if score > best_score:
+            best_score = score
+            best_row = row
+
+    if best_score < threshold or best_row is None:
+        return None
+
+    matched_item = best_row.get(item_column, "")
+    print(f"  [FUZZY] '{item_number}' matched '{matched_item}' (score {best_score:.2f})")
+
+    return {
+        "source_file": path,
+        "item_number": _row_value(best_row, mapped_columns, "item_number"),
+        "reference_specification": _row_value(best_row, mapped_columns, "reference_specification"),
+        "material_grade": _row_value(best_row, mapped_columns, "material_grade"),
+        "material_description": _row_value(best_row, mapped_columns, "material_description"),
+        "dimensions": _build_dimensions(best_row, mapped_columns),
+        "mechanical_properties": {
+            "yield_strength": _row_value(best_row, mapped_columns, "yield_strength"),
+            "tensile_strength": _row_value(best_row, mapped_columns, "tensile_strength"),
+            "elongation": _row_value(best_row, mapped_columns, "elongation"),
+            "hardness": _row_value(best_row, mapped_columns, "hardness"),
+        },
+        "chemical_properties": _build_chemical_requirements(best_row, mapped_columns),
+    }
 
 
 def spec_to_prompt_text(material_spec):
