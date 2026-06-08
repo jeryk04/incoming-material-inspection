@@ -76,4 +76,4 @@ if __name__ == '__main__':
     print('  Wi-Fi:   http://192.11.11.190:8765')
     print('  GJ net:  http://10.204.4.20:8765')
     print()
-    app.run(host='0.0.0.0', port=8765, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=False)

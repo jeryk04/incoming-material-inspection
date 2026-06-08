@@ -1,0 +1,179 @@
+{
+    "material_info": {
+        "supplier": "Kyowoo Corp",
+        "item_number": "A269-30400-224",
+        "part_number": "A269-30400-224",
+        "po_number": "96121",
+        "quantity": "312,501",
+        "heat_number": "",
+        "inspection_date": "09/14/26",
+        "inspector": "JC",
+        "sample_size": "11",
+        "lot_disposition": "Approved"
+    },
+    "measurements": [
+        {
+            "measurement": "OD",
+            "lsl": ".181",
+            "usl": ".182",
+            "average": ".182",
+            "min": ".182",
+            "max": ".182",
+            "instrument": "",
+            "result": "PASS"
+        },
+        {
+            "measurement": "ID (PIN GO/NO-GO)",
+            "lsl": ".125",
+            "usl": ".127",
+            "average": "",
+            "min": "",
+            "max": "",
+            "instrument": "PIN",
+            "result": "PASS"
+        }
+    ],
+    "certificate": {
+        "supplier_name": "KYOWOO CORPORATION",
+        "heat_number": "SE49992",
+        "material_description": "Stainless Steel Tube",
+        "material_grade": "TP304 / SS304 TUBE",
+        "purchase_order": "",
+        "outside_diameter": ".1823\" / .1821\"",
+        "inside_diameter": ".1256\" / .1256\"",
+        "wall_thickness": "-",
+        "length": "10ft 5\" / 10ft 5\"",
+        "straightness": "",
+        "yield_strength": "",
+        "tensile_strength": "1,072",
+        "elongation": "-",
+        "hardness": "335",
+        "chemical_composition": {
+            "C": "0.0556",
+            "Mn": "1.034",
+            "P": "0.0329",
+            "S": "0.0040",
+            "Si": "0.417",
+            "Al": "",
+            "N": "",
+            "Cr": "18.194",
+            "Ni": "8.080",
+            "Mo": "-",
+            "Cu": ""
+        },
+        "chemical_specified": {
+            "C": "0.0800 MAX",
+            "Mn": "2.0000 MAX",
+            "P": "0.0400 MAX",
+            "S": "0.0300 MAX",
+            "Si": "0.750 MAX",
+            "Al": "",
+            "N": "",
+            "Cr": "20.00 MAX / 18.00 MIN",
+            "Ni": "11.00 MAX / 8.00 MIN",
+            "Mo": "-",
+            "Cu": ""
+        },
+        "mechanical_specified": {
+            "yield_strength": "",
+            "tensile_strength": "Min 827",
+            "elongation": "",
+            "hardness": ""
+        },
+        "mechanical_properties": [
+            {
+                "property": "T.S",
+                "specified": "Min 827",
+                "observed": "1,072",
+                "unit": "MPa",
+                "result": "PASS"
+            },
+            {
+                "property": "E.L.",
+                "specified": "",
+                "observed": "-",
+                "unit": "%",
+                "result": ""
+            },
+            {
+                "property": "HARDNESS",
+                "specified": "",
+                "observed": "335",
+                "unit": "HV",
+                "result": ""
+            }
+        ],
+        "dimensional_specified": {
+            "outside_diameter": "MAX .1830\" / MIN .1810\"",
+            "inside_diameter": "MAX .1270\" / MIN .1250\"",
+            "wall_thickness": "",
+            "length": "10ft 5\"",
+            "straightness": ""
+        },
+        "certificate_status_notes": "Acc. to EN 10204/3.1B. ASTM A269 / AMS 5563, TP304. Country of Melt & Pour: Republic of Korea. Certificate No: KW 26-04-07-01. Product No: QGP2047, Heat No: SE49992. Lot No: GS040701.",
+        "certificate_review_result": "PASS"
+    },
+    "validation": {
+        "heat_number_match": "REVIEW",
+        "po_number_match": "PASS",
+        "material_review": "Material grade TP304 stainless steel tube per ASTM A269/AMS 5563. Chemical composition within specified limits. Tensile strength 1,072 MPa exceeds minimum 827 MPa. Dimensional measurements within specified tolerances.",
+        "certificate_review_status": "PASS",
+        "final_lot_decision": "LOT ACCEPTED",
+        "measurements_result": "PASS",
+        "rejection_reason": ""
+    },
+    "material_specification": {
+        "source_file": "data/material_specs\\material_specification.xlsx",
+        "item_number": "A269-30400-224",
+        "reference_specification": "ASTM A269",
+        "material_grade": "TP304",
+        "material_description": "Steel, Stainless",
+        "dimensions": [
+            {
+                "measurement": "OD",
+                "nominal": "0.182",
+                "tolerance": "+/-.001",
+                "lsl": 0.181,
+                "usl": 0.183
+            },
+            {
+                "measurement": "ID",
+                "nominal": ".126",
+                "tolerance": "+/- .001",
+                "lsl": 0.125,
+                "usl": 0.127
+            }
+        ],
+        "mechanical_properties": {
+            "yield_strength": "30000 PSI Min",
+            "tensile_strength": "75000 PSI Min",
+            "elongation": "35% Min",
+            "hardness": ""
+        },
+        "chemical_properties": {
+            "C": "0.08 Max",
+            "Mn": "2.00 Max",
+            "P": "0.045 Max",
+            "S": "0.030 Max",
+            "Si": "0.75 Max",
+            "Al": "",
+            "N": "",
+            "Cr": "18.0-20.0",
+            "Ni": "8.0-10.5",
+            "Mo": "",
+            "Cu": ""
+        },
+        "required_sections": [
+            "chemical",
+            "mechanical",
+            "dimensional"
+        ],
+        "required_dimensional_properties": [
+            "OD",
+            "Wall",
+            "Length"
+        ]
+    },
+    "_report_path": "reports\\A269-30400-224_PO_96121.pdf",
+    "_source_pdf": "04-14-2026"
+}
