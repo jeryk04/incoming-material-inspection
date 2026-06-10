@@ -1,13 +1,17 @@
+import os
 from flask import Flask, render_template, jsonify, send_file
 from pathlib import Path
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent / '.env')
 
 app = Flask(__name__, template_folder='../templates')
 
 BASE_DIR = Path(__file__).parent.parent
-LOG_FILE = BASE_DIR / 'watcher.log'
-PROCESSED_DIR = BASE_DIR / 'data' / 'processed'
-REPORTS_DIR = BASE_DIR / 'reports'
+LOG_FILE      = Path(os.getenv("WATCHER_LOG_PATH")     or BASE_DIR / 'watcher.log')
+PROCESSED_DIR = Path(os.getenv("PROCESSED_FOLDER_PATH") or BASE_DIR / 'data' / 'processed')
+REPORTS_DIR   = Path(os.getenv("REPORTS_FOLDER_PATH")   or BASE_DIR / 'reports')
 BATCH_SUMMARY = PROCESSED_DIR / 'batch_summary.csv'
 
 
@@ -26,10 +30,8 @@ def get_results():
         records = df.iloc[::-1].to_dict('records')
         # Attach report filename if it exists
         for row in records:
-            item = str(row.get('item_number', '')).strip()
-            po = str(row.get('po_number', '')).strip()
-            report_name = f"{item}_PO_{po}.pdf"
-            row['report'] = report_name if (REPORTS_DIR / report_name).exists() else ''
+            report_name = str(row.get('report_filename', '')).strip()
+            row['report'] = report_name if report_name and (REPORTS_DIR / report_name).exists() else ''
         return jsonify(records)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -70,10 +72,9 @@ def serve_report(filename):
 
 
 if __name__ == '__main__':
+    port = int(os.getenv("DASHBOARD_PORT", 5000))
     print()
     print('  Incoming Inspection Dashboard')
-    print('  Local:   http://localhost:8765')
-    print('  Wi-Fi:   http://192.11.11.190:8765')
-    print('  GJ net:  http://10.204.4.20:8765')
+    print(f'  http://0.0.0.0:{port}')
     print()
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False)

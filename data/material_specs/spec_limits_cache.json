@@ -555,5 +555,69 @@
       "Wall",
       "Length"
     ]
+  },
+  "UNSN02200_02200": {
+    "chemical_properties": {
+      "C": "0.15 Max",
+      "Mn": "0.35 Max",
+      "P": "0.010 Max",
+      "S": "0.010 Max",
+      "Si": "0.35 Max",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "99.0 Min",
+      "Mo": "",
+      "Cu": "0.25 Max"
+    },
+    "mechanical_properties": {
+      "yield_strength": "15000 PSI Min",
+      "tensile_strength": "55000 PSI Min",
+      "elongation": "40% Min",
+      "hardness": ""
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "Wall",
+      "Length"
+    ]
+  },
+  "DIN_2391_ST_34": {
+    "chemical_properties": {
+      "C": "0.17 Max",
+      "Mn": "",
+      "P": "0.045 Max",
+      "S": "0.045 Max",
+      "Si": "",
+      "Al": "",
+      "N": "",
+      "Cr": "",
+      "Ni": "",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "196 N/mm2 Min",
+      "tensile_strength": "333-412 N/mm2",
+      "elongation": "25 Min",
+      "hardness": ""
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "ID",
+      "Wall",
+      "Length",
+      "Straightness"
+    ]
   }
 }

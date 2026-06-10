@@ -153,6 +153,15 @@ activemq-data/
 # Local material specification database exports
 data/material_specs/*.mdb
 data/material_specs/*.accdb
+
+# Runtime data — grows unboundedly, never tracked
+data/incomings/*
+!data/incomings/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+reports/*
+!reports/.gitkeep
+watcher.log
 .envrc
 .venv
 env/
@@ -222,7 +231,5 @@ __marimo__/
 .streamlit/secrets.toml
 
 .vscode/
-
-.env
 
 

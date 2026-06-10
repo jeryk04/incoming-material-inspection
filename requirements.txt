@@ -9,6 +9,5 @@ python-dotenv
 openai
 anthropic
 pymupdf
-pyodbc
 watchdog
 flask

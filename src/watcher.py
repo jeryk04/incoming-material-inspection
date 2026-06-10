@@ -186,6 +186,12 @@ def _process_backlog() -> None:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--process-backlog", action="store_true",
+                        help="Also process any existing unprocessed PDFs on startup.")
+    args = parser.parse_args()
+
     log.info("=" * 44)
     log.info("  INCOMING MATERIAL INSPECTION WATCHER")
     log.info("=" * 44)
@@ -193,15 +199,19 @@ def main() -> None:
     for folder in (INCOMING_FOLDER, PROCESSED_FOLDER, REPORTS_FOLDER):
         os.makedirs(folder, exist_ok=True)
 
-    _process_backlog()
+    if args.process_backlog:
+        _process_backlog()
+    else:
+        log.info("Watching for new files only. Use --process-backlog to also process existing PDFs.")
 
     handler = _PDFHandler()
     observer = Observer()
-    observer.schedule(handler, INCOMING_FOLDER, recursive=False)
+    observer.schedule(handler, INCOMING_FOLDER, recursive=True)
     observer.start()
 
     log.info(f"Watching: {INCOMING_FOLDER}")
-    log.info("Drop a PDF into data/incomings/ to trigger processing.")
+    log.info(f"Reports:  {REPORTS_FOLDER}")
+    log.info(f"Drop a PDF into {INCOMING_FOLDER} to trigger processing.")
     log.info("Press Ctrl+C to stop.")
 
     try:

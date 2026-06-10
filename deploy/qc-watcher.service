@@ -1,0 +1,17 @@
+[Unit]
+Description=QC Incoming Material Inspection — Watcher
+After=network.target
+
+[Service]
+Type=simple
+User=__APP_USER__
+WorkingDirectory=__PROJECT_DIR__
+EnvironmentFile=__PROJECT_DIR__/.env
+ExecStart=__PROJECT_DIR__/.venv/bin/python src/watcher.py
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

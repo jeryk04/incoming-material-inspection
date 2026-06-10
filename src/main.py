@@ -1,6 +1,9 @@
 import os
 import re
 import pandas as pd
+from dotenv import load_dotenv
+
+load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), '.env'))
 
 from ai_certificate_analyzer import analyze_incoming_pdf, save_analysis_json
 from material_spec_database import lookup_material_spec, fuzzy_lookup_material_spec
@@ -12,9 +15,9 @@ from spec_limits_lookup import lookup_specification_limits
 # Batch Incoming PDF Report Generator
 # ==========================================================
 
-INCOMING_FOLDER = "data/incomings"
-PROCESSED_FOLDER = "data/processed"
-REPORTS_FOLDER = "reports"
+INCOMING_FOLDER  = os.getenv("INCOMINGS_FOLDER_PATH")  or "data/incomings"
+PROCESSED_FOLDER = os.getenv("PROCESSED_FOLDER_PATH") or "data/processed"
+REPORTS_FOLDER   = os.getenv("REPORTS_FOLDER_PATH")   or "reports"
 
 
 def clean_text(value, default=""):
@@ -534,17 +537,17 @@ def extract_po_from_page1(pdf_path):
 
 def get_all_incoming_pdfs():
     """
-    Get all PDFs from data/incomings. Any filename is accepted — item# and
-    PO# are read from the document content, not the filename.
+    Get all PDFs from the incomings folder, including subdirectories.
+    Any filename is accepted — item# and PO# are read from document content.
     """
     if not os.path.exists(INCOMING_FOLDER):
         os.makedirs(INCOMING_FOLDER, exist_ok=True)
 
-    pdf_files = [
-        os.path.join(INCOMING_FOLDER, f)
-        for f in os.listdir(INCOMING_FOLDER)
-        if f.lower().endswith(".pdf")
-    ]
+    pdf_files = []
+    for root, _dirs, files in os.walk(INCOMING_FOLDER):
+        for f in files:
+            if f.lower().endswith(".pdf"):
+                pdf_files.append(os.path.join(root, f))
 
     pdf_files.sort()
     return pdf_files
@@ -1036,6 +1039,7 @@ def process_single_pdf(pdf_path):
         "source_pdf": file_stem,
         "item_number": item_number,
         "po_number": po_number,
+        "report_filename": output_filename,
         "supplier": clean_text(material_info.get("supplier", "")),
         "inspection_date": clean_text(material_info.get("inspection_date", "")),
         "inspector": clean_text(material_info.get("inspector", "")),

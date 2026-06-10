@@ -107,6 +107,59 @@
     a.report-link:hover { text-decoration: underline; }
     .no-report { color: #bbb; font-size: 0.78rem; }
 
+    /* Filters */
+    .filters {
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .filter-group label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #888;
+      font-weight: 600;
+    }
+    .filter-group input,
+    .filter-group select {
+      border: 1px solid #d8dde3;
+      border-radius: 5px;
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      color: #1a1a1a;
+      background: #fafbfc;
+      outline: none;
+      min-width: 140px;
+    }
+    .filter-group input:focus,
+    .filter-group select:focus { border-color: #4a90d9; background: #fff; }
+    .filter-group.date-range { flex-direction: row; gap: 6px; align-items: flex-end; }
+    .filter-group.date-range input { min-width: 130px; }
+    .filter-group.date-range span { font-size: 0.8rem; color: #999; padding-bottom: 7px; }
+    #btn-clear-filters {
+      padding: 6px 16px;
+      background: #eef2f7;
+      border: 1px solid #d0d7e0;
+      border-radius: 5px;
+      font-size: 0.8rem;
+      color: #555;
+      cursor: pointer;
+      align-self: flex-end;
+    }
+    #btn-clear-filters:hover { background: #dde4ed; }
+    #filter-count { font-size: 0.78rem; color: #888; align-self: flex-end; padding-bottom: 2px; }
+
     /* Log panel */
     .log-panel {
       background: #111820;
@@ -170,6 +223,43 @@
     </div>
   </div>
 
+  <!-- Filters -->
+  <div class="filters">
+    <div class="filter-group">
+      <label>Item #</label>
+      <input id="f-item" type="text" placeholder="e.g. A513-10200-021">
+    </div>
+    <div class="filter-group">
+      <label>Supplier</label>
+      <select id="f-supplier"><option value="">All Suppliers</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Inspector</label>
+      <select id="f-inspector"><option value="">All Inspectors</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Final Result</label>
+      <select id="f-result">
+        <option value="">All</option>
+        <option value="ACCEPTED">Accepted</option>
+        <option value="REJECTED">Rejected</option>
+      </select>
+    </div>
+    <div class="filter-group date-range">
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label>Date From</label>
+        <input id="f-date-from" type="date">
+      </div>
+      <span>–</span>
+      <div style="display:flex;flex-direction:column;gap:4px;">
+        <label>Date To</label>
+        <input id="f-date-to" type="date">
+      </div>
+    </div>
+    <button id="btn-clear-filters">Clear</button>
+    <span id="filter-count"></span>
+  </div>
+
   <!-- Results Table -->
   <div class="section-title">Inspection Results</div>
   <div class="table-wrap">
@@ -200,6 +290,8 @@
 </div>
 
 <script>
+  let allRows = [];
+
   function badge(value, type) {
     if (!value) return '<span class="no-report">–</span>';
     const v = String(value).toUpperCase();
@@ -212,8 +304,95 @@
     return `<span class="badge ${cls}">${value}</span>`;
   }
 
-  function cell(v) {
-    return `<td>${v || '–'}</td>`;
+  function cell(v) { return `<td>${v || '–'}</td>`; }
+
+  function parseDate(str) {
+    if (!str) return null;
+    // Handle MM/DD/YY, MM/DD/YYYY, YYYY-MM-DD
+    const s = String(str).trim();
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return new Date(s);
+    const mdy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if (mdy) {
+      let y = parseInt(mdy[3]);
+      if (y < 100) y += y < 50 ? 2000 : 1900;
+      return new Date(y, parseInt(mdy[1]) - 1, parseInt(mdy[2]));
+    }
+    return null;
+  }
+
+  function populateDropdowns(rows) {
+    const suppliers  = [...new Set(rows.map(r => r.supplier).filter(Boolean))].sort();
+    const inspectors = [...new Set(rows.map(r => r.inspector).filter(Boolean))].sort();
+    const sel = id => document.getElementById(id);
+    const fill = (id, items) => {
+      const s = sel(id);
+      const cur = s.value;
+      s.innerHTML = `<option value="">All</option>` +
+        items.map(v => `<option value="${v}"${v===cur?' selected':''}>${v}</option>`).join('');
+    };
+    fill('f-supplier',  suppliers);
+    fill('f-inspector', inspectors);
+  }
+
+  function applyFilters() {
+    const item    = document.getElementById('f-item').value.trim().toLowerCase();
+    const supp    = document.getElementById('f-supplier').value;
+    const insp    = document.getElementById('f-inspector').value;
+    const result  = document.getElementById('f-result').value;
+    const dateFrom = document.getElementById('f-date-from').value;
+    const dateTo   = document.getElementById('f-date-to').value;
+    const from = dateFrom ? new Date(dateFrom) : null;
+    const to   = dateTo   ? new Date(dateTo + 'T23:59:59') : null;
+
+    const filtered = allRows.filter(row => {
+      if (item && !String(row.item_number || '').toLowerCase().includes(item)) return false;
+      if (supp && row.supplier !== supp) return false;
+      if (insp && row.inspector !== insp) return false;
+      if (result && !String(row.final_result || '').toUpperCase().includes(result)) return false;
+      if (from || to) {
+        const d = parseDate(row.inspection_date);
+        if (!d) return false;
+        if (from && d < from) return false;
+        if (to   && d > to)   return false;
+      }
+      return true;
+    });
+
+    renderRows(filtered);
+    const total = allRows.length;
+    const shown = filtered.length;
+    document.getElementById('filter-count').textContent =
+      shown < total ? `Showing ${shown} of ${total}` : `${total} record${total !== 1 ? 's' : ''}`;
+  }
+
+  function renderRows(rows) {
+    const tbody = document.getElementById('results-body');
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px;">No matching results.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(row => {
+      const final = String(row.final_result || '');
+      const rowClass = final.includes('ACCEPTED') ? 'accepted' : final.includes('REJECTED') ? 'rejected' : '';
+      const reportHtml = row.report
+        ? `<a class="report-link" href="/reports/${encodeURIComponent(row.report)}" target="_blank">View PDF</a>`
+        : '<span class="no-report">–</span>';
+      return `<tr class="${rowClass}">
+        ${cell(row.item_number)}
+        ${cell(row.po_number)}
+        ${cell(row.supplier)}
+        ${cell(row.inspection_date)}
+        ${cell(row.inspector)}
+        ${cell(row.heat_number)}
+        ${cell(row.quantity)}
+        <td>${badge(final.includes('ACCEPTED') ? 'PASS' : row.measurements_result, 'measure')}</td>
+        <td>${badge(row.heat_match, 'match')}</td>
+        <td>${badge(row.po_match, 'match')}</td>
+        <td>${badge(row.final_result, 'final')}</td>
+        <td>${reportHtml}</td>
+      </tr>`;
+    }).join('');
   }
 
   async function loadStats() {
@@ -229,42 +408,31 @@
   async function loadResults() {
     try {
       const r = await fetch('/api/results');
-      const rows = await r.json();
-      const tbody = document.getElementById('results-body');
-      if (!rows.length) {
-        tbody.innerHTML = '<tr><td colspan="12" style="text-align:center;color:#aaa;padding:20px;">No results yet.</td></tr>';
-        return;
-      }
-      tbody.innerHTML = rows.map(row => {
-        const final = String(row.final_result || '');
-        const rowClass = final.includes('ACCEPTED') ? 'accepted' : final.includes('REJECTED') ? 'rejected' : '';
-        const reportHtml = row.report
-          ? `<a class="report-link" href="/reports/${encodeURIComponent(row.report)}" target="_blank">View PDF</a>`
-          : '<span class="no-report">–</span>';
-        return `<tr class="${rowClass}">
-          ${cell(row.item_number)}
-          ${cell(row.po_number)}
-          ${cell(row.supplier)}
-          ${cell(row.inspection_date)}
-          ${cell(row.inspector)}
-          ${cell(row.heat_number)}
-          ${cell(row.quantity)}
-          <td>${badge(final.includes('ACCEPTED') ? 'PASS' : row.measurements_result, 'measure')}</td>
-          <td>${badge(row.heat_match, 'match')}</td>
-          <td>${badge(row.po_match, 'match')}</td>
-          <td>${badge(row.final_result, 'final')}</td>
-          <td>${reportHtml}</td>
-        </tr>`;
-      }).join('');
+      allRows = await r.json();
+      populateDropdowns(allRows);
+      applyFilters();
     } catch(e) {}
   }
+
+  // Wire up filter inputs
+  ['f-item','f-supplier','f-inspector','f-result','f-date-from','f-date-to']
+    .forEach(id => document.getElementById(id).addEventListener('input', applyFilters));
+
+  document.getElementById('btn-clear-filters').addEventListener('click', () => {
+    document.getElementById('f-item').value = '';
+    document.getElementById('f-supplier').value = '';
+    document.getElementById('f-inspector').value = '';
+    document.getElementById('f-result').value = '';
+    document.getElementById('f-date-from').value = '';
+    document.getElementById('f-date-to').value = '';
+    applyFilters();
+  });
 
   function refreshAll() {
     loadStats();
     loadResults();
-    const now = new Date();
     document.getElementById('last-refresh').textContent =
-      'Refreshed ' + now.toLocaleTimeString();
+      'Refreshed ' + new Date().toLocaleTimeString();
   }
 
   refreshAll();
