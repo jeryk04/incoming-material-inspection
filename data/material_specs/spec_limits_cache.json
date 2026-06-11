@@ -619,5 +619,36 @@
       "Length",
       "Straightness"
     ]
+  },
+  "ASTM_A249_304": {
+    "chemical_properties": {
+      "C": "0.08 Max",
+      "Mn": "2.00 Max",
+      "P": "0.045 Max",
+      "S": "0.030 Max",
+      "Si": "0.75 Max",
+      "Al": "",
+      "N": "",
+      "Cr": "18.0-20.0",
+      "Ni": "8.0-10.5",
+      "Mo": "",
+      "Cu": ""
+    },
+    "mechanical_properties": {
+      "yield_strength": "30000 PSI Min",
+      "tensile_strength": "75000 PSI Min",
+      "elongation": "35% Min",
+      "hardness": "90 HRB Max"
+    },
+    "required_sections": [
+      "chemical",
+      "mechanical",
+      "dimensional"
+    ],
+    "required_dimensional_properties": [
+      "OD",
+      "Wall",
+      "Length"
+    ]
   }
 }

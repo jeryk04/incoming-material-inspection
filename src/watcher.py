@@ -24,8 +24,6 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 os.chdir(BASE_DIR)
 
 import pandas as pd
-from watchdog.observers import Observer
-from watchdog.events import FileSystemEventHandler
 
 import main as inspector  # noqa: E402  (import after chdir is intentional)
 
@@ -144,23 +142,24 @@ def _process(pdf_path: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Watchdog event handler
+# PDF scanner
 # ---------------------------------------------------------------------------
 
-class _PDFHandler(FileSystemEventHandler):
-    """React to PDFs being created or moved into the watch folder."""
-
-    def _handle(self, path: str) -> None:
-        if os.path.splitext(path)[1].lower() == ".pdf":
-            _process(os.path.abspath(path))
-
-    def on_created(self, event):
-        if not event.is_directory:
-            self._handle(event.src_path)
-
-    def on_moved(self, event):
-        if not event.is_directory:
-            self._handle(event.dest_path)
+def _get_all_pdfs() -> set:
+    """
+    Return the set of all PDF paths in the incoming folder.
+    Uses only directory listing (no per-file stat calls) so it is fast
+    even on slow network-mounted drives like WSL drvfs.
+    """
+    found = set()
+    try:
+        for root, _, files in os.walk(INCOMING_FOLDER):
+            for name in files:
+                if name.lower().endswith(".pdf"):
+                    found.add(os.path.join(root, name))
+    except Exception:
+        log.exception("Error scanning incoming folder.")
+    return found
 
 
 # ---------------------------------------------------------------------------
@@ -204,25 +203,31 @@ def main() -> None:
     else:
         log.info("Watching for new files only. Use --process-backlog to also process existing PDFs.")
 
-    handler = _PDFHandler()
-    observer = Observer()
-    observer.schedule(handler, INCOMING_FOLDER, recursive=True)
-    observer.start()
-
     log.info(f"Watching: {INCOMING_FOLDER}")
     log.info(f"Reports:  {REPORTS_FOLDER}")
     log.info(f"Drop a PDF into {INCOMING_FOLDER} to trigger processing.")
     log.info("Press Ctrl+C to stop.")
 
+    log.info("Building initial file snapshot (ignoring existing PDFs)...")
+    t0 = time.time()
+    known_pdfs = _get_all_pdfs()
+    log.info(f"Snapshot complete — {len(known_pdfs)} existing PDF(s) ignored. ({time.time()-t0:.1f}s)")
+    log.info("Ready — only PDFs uploaded from this point on will be processed.")
+
     try:
         while True:
-            time.sleep(1)
+            time.sleep(30)
+            log.info("Scanning for new PDFs...")
+            t0 = time.time()
+            current_pdfs = _get_all_pdfs()
+            new_files = current_pdfs - known_pdfs
+            log.info(f"Scan done in {time.time()-t0:.1f}s — {len(new_files)} new file(s) found.")
+            for pdf_path in sorted(new_files):
+                _process(pdf_path)
+                known_pdfs.add(pdf_path)
     except KeyboardInterrupt:
         pass
 
-    log.info("Shutting down...")
-    observer.stop()
-    observer.join()
     log.info("Watcher stopped.")
 
 
