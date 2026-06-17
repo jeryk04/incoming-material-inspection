@@ -13,9 +13,9 @@ User=gjsteel
 Group=gjsteel
 WorkingDirectory=__PROJECT_DIR__
 EnvironmentFile=__PROJECT_DIR__/.env
-# --process-backlog so PDFs that arrived while the service was down are still
-# picked up on (re)start instead of being silently ignored.
-ExecStart=__PROJECT_DIR__/.venv/bin/python src/watcher.py --process-backlog
+# No --process-backlog: the thousands of existing files in the share are
+# ignored on startup; only PDFs added while the watcher is running are processed.
+ExecStart=__PROJECT_DIR__/.venv/bin/python src/watcher.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
