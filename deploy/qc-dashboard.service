@@ -1,18 +1,23 @@
 [Unit]
 Description=QC Incoming Material Inspection — Web Dashboard
-After=network.target
+# Soft dependency on the share: the dashboard still starts and serves the local
+# batch_summary.csv even if the mount is briefly unavailable; report links to
+# files on the share will resolve once it is mounted.
+After=network-online.target mnt-gjsteel\x2dold\x2ddata.mount
+Wants=network-online.target mnt-gjsteel\x2dold\x2ddata.mount
 
 [Service]
 Type=simple
-User=__APP_USER__
+User=gjsteel
+Group=gjsteel
 WorkingDirectory=__PROJECT_DIR__
 EnvironmentFile=__PROJECT_DIR__/.env
-ExecStartPre=/bin/bash -c 'mountpoint -q /mnt/f || (mkdir -p /mnt/f && mount -t drvfs F: /mnt/f)'
 ExecStart=__PROJECT_DIR__/.venv/bin/python src/web_dashboard.py
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=qc-dashboard
 
 [Install]
 WantedBy=multi-user.target

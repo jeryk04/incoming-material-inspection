@@ -1,18 +1,26 @@
 [Unit]
 Description=QC Incoming Material Inspection — Watcher
-After=network.target
+# Wait for the SMB share to be mounted before starting (same pattern as gjsteel-watcher).
+# The .mount unit name is derived from the mount point /mnt/gjsteel-old-data.
+After=network-online.target mnt-gjsteel\x2dold\x2ddata.mount
+Wants=network-online.target
+Requires=mnt-gjsteel\x2dold\x2ddata.mount
 
 [Service]
 Type=simple
-User=__APP_USER__
+# Must match the uid/gid the share is mounted with (see the fstab entry).
+User=gjsteel
+Group=gjsteel
 WorkingDirectory=__PROJECT_DIR__
 EnvironmentFile=__PROJECT_DIR__/.env
-ExecStartPre=/bin/bash -c 'mountpoint -q /mnt/f || (mkdir -p /mnt/f && mount -t drvfs F: /mnt/f)'
-ExecStart=__PROJECT_DIR__/.venv/bin/python src/watcher.py
+# --process-backlog so PDFs that arrived while the service was down are still
+# picked up on (re)start instead of being silently ignored.
+ExecStart=__PROJECT_DIR__/.venv/bin/python src/watcher.py --process-backlog
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+SyslogIdentifier=qc-watcher
 
 [Install]
 WantedBy=multi-user.target
