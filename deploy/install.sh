@@ -86,7 +86,7 @@ if [ "$ENV_WAS_CREATED" -eq 1 ]; then
     echo "    sudo systemctl start qc-watcher qc-dashboard"
 else
     sudo systemctl restart qc-watcher qc-dashboard
-    PORT="$(grep -E '^DASHBOARD_PORT=' "$PROJECT_DIR/.env" | cut -d= -f2)"
+    PORT="$(grep -E '^DASHBOARD_PORT=' "$PROJECT_DIR/.env" | cut -d= -f2 || true)"
     PORT="${PORT:-5000}"
     echo
     echo "=== Done ==="

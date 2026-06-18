@@ -79,7 +79,9 @@ fi
 if mountpoint -q "$MOUNT_POINT"; then
     echo
     echo "SUCCESS: $SHARE is mounted at $MOUNT_POINT"
-    ls -la "$MOUNT_POINT" | head -20
+    # '|| true' so a SIGPIPE from head (ls writing a large dir into a closed
+    # pipe) under 'set -o pipefail' doesn't abort the script / its caller.
+    ls -la "$MOUNT_POINT" 2>/dev/null | head -20 || true
 else
     echo
     echo "ERROR: mount failed. Try manually:" >&2
